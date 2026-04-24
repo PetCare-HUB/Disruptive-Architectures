@@ -5,24 +5,6 @@
  
 ---
  
-## 📋 Sumário
- 
-- [Sobre o Projeto](#sobre-o-projeto)
-- [Problema Real](#problema-real)
-- [Solução Proposta](#solução-proposta)
-- [Arquitetura do Sistema](#arquitetura-do-sistema)
-- [Módulos do Projeto](#módulos-do-projeto)
-- [Tecnologias Utilizadas](#tecnologias-utilizadas)
-- [Componentes e Sensores](#componentes-e-sensores)
-- [Protocolo de Comunicação](#protocolo-de-comunicação)
-- [Dashboard](#dashboard)
-- [Simulação no Wokwi](#simulação-no-wokwi)
-- [Como Executar](#como-executar)
-- [Estrutura do Repositório](#estrutura-do-repositório)
-- [Resultados Parciais](#resultados-parciais)
-- [Próximos Passos](#próximos-passos)
-- [Integrantes](#integrantes)
----
  
 ## 📌 Sobre o Projeto
  
