@@ -1,0 +1,3 @@
+# Coleira Smart
+# Nenhuma biblioteca externa necessária.
+# O código usa apenas Wire.h, que já vem com Arduino/ESP32.
