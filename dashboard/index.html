@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <title>PetCare Hub | Dashboard Coleira Smart</title>
+
+  <link rel="stylesheet" href="./css/styles.css" />
+
+  <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+  <script src="./js/app.js" defer></script>
+</head>
+
+<body>
+  <main class="container">
+    <header class="topbar">
+      <section class="brand">
+        <div class="logo">🐾</div>
+
+        <div>
+          <h1>PetCare Hub</h1>
+          <p class="subtitle">
+            Dashboard em tempo real da Coleira Smart via MQTT
+          </p>
+        </div>
+      </section>
+
+      <aside class="connection-panel">
+        <div class="connection-line">
+          <strong>Conexão MQTT</strong>
+
+          <span id="connectionBadge" class="badge disconnected">
+            <span class="dot"></span>
+            Desconectado
+          </span>
+        </div>
+
+        <div class="topic">
+          <strong>Tópico:</strong>
+          <span id="topicText"></span>
+        </div>
+      </aside>
+    </header>
+
+    <section class="grid">
+      <article class="card span-4">
+        <div class="card-header">
+          <div class="label">Status do pet</div>
+          <div id="lastUpdate">--:--:--</div>
+        </div>
+
+        <div id="statusPill" class="status-pill status-repouso">
+          ---
+        </div>
+
+        <p id="statusDescription" class="hint">
+          Aguardando telemetria da coleira.
+        </p>
+      </article>
+
+      <article class="card span-4">
+        <div class="card-header">
+          <div class="label">Velocidade de movimento</div>
+        </div>
+
+        <div>
+          <span id="movementValue" class="value">---</span>
+          <span class="value-sm">g/s</span>
+        </div>
+
+        <div class="progress">
+          <div id="movementProgress" class="progress-fill"></div>
+        </div>
+
+        <p class="hint">
+          Mede a variação da aceleração por segundo. Não é velocidade em km/h.
+        </p>
+      </article>
+
+      <article class="card span-4">
+        <div class="card-header">
+          <div class="label">Bateria simulada</div>
+        </div>
+
+        <div>
+          <span id="batteryValue" class="value">---</span>
+          <span class="value-sm">%</span>
+        </div>
+
+        <div class="progress">
+          <div id="batteryProgress" class="progress-fill good"></div>
+        </div>
+
+        <p id="batteryHint" class="hint">
+          Aguardando informação da coleira.
+        </p>
+      </article>
+
+      <article class="card span-8">
+        <div class="card-header">
+          <div>
+            <div class="label">Gráfico em tempo real</div>
+            <p class="hint">
+              Histórico recente da velocidade de movimento filtrada.
+            </p>
+          </div>
+        </div>
+
+        <canvas id="movementChart" width="900" height="260"></canvas>
+      </article>
+
+      <article class="card span-4">
+        <div class="card-header">
+          <div class="label">Resumo técnico</div>
+        </div>
+
+        <div class="data-list">
+          <div class="data-row">
+            <span>Modo demo</span>
+            <strong id="demoMode">---</strong>
+          </div>
+
+          <div class="data-row">
+            <span>Status bruto</span>
+            <strong id="rawStatus">---</strong>
+          </div>
+
+          <div class="data-row">
+            <span>Média da janela</span>
+            <strong id="windowAverage">---</strong>
+          </div>
+
+          <div class="data-row">
+            <span>Alerta</span>
+            <strong id="alertStatus">---</strong>
+          </div>
+
+          <div class="data-row">
+            <span>Wi-Fi no dispositivo</span>
+            <strong id="wifiStatus">---</strong>
+          </div>
+
+          <div class="data-row">
+            <span>MQTT no dispositivo</span>
+            <strong id="deviceMqttStatus">---</strong>
+          </div>
+        </div>
+      </article>
+
+      <article class="card span-6">
+        <div class="card-header">
+          <div class="label">Último JSON recebido</div>
+        </div>
+
+        <pre id="jsonOutput">Aguardando mensagem MQTT...</pre>
+      </article>
+
+      <article class="card span-6">
+        <div class="card-header">
+          <div class="label">Log de eventos</div>
+        </div>
+
+        <div id="eventLog" class="log"></div>
+      </article>
+    </section>
+
+    <p class="footer-note">
+      PetCare Hub — protótipo acadêmico de IoT para monitoramento preventivo da saúde do pet.
+    </p>
+  </main>
+</body>
+</html>
