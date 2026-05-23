@@ -364,23 +364,6 @@ Adicionar link do YouTube não listado aqui
 
 ---
 
-## ✅ Funcionalidades Implementadas
-
-- [x] Leitura do sensor MPU6050
-- [x] Cálculo de variação de aceleração
-- [x] Cálculo de velocidade de movimento
-- [x] Classificação entre repouso, ativo e muito ativo
-- [x] Filtro contra movimentos pequenos
-- [x] Confirmação por tempo para evitar falso positivo
-- [x] Envio de dados via MQTT
-- [x] Dashboard web em tempo real
-- [x] Exibição do JSON recebido
-- [x] Gráfico de movimento
-- [x] Alerta de inatividade
-- [x] Compatibilidade com Wokwi e ESP32 físico
-
----
-
 ## ⚠️ Observações Técnicas
 
 - O projeto não mede temperatura corporal do pet.
