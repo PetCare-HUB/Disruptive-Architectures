@@ -220,17 +220,17 @@ h1 {
   text-transform: uppercase;
 }
 
-.status-repouso {
+.status-sedentario {
   background: var(--blue-bg);
   color: var(--blue);
 }
 
-.status-ativo {
+.status-moderado {
   background: var(--green-bg);
   color: var(--green);
 }
 
-.status-muito_ativo {
+.status-ativo {
   background: var(--yellow-bg);
   color: var(--yellow);
 }

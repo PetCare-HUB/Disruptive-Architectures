@@ -1,4 +1,4 @@
 [wokwi]
 version = 1
-firmware = "build/esp32.esp32.esp32doit-devkit-v1/coleira-smart.ino.bin"
-elf = "build/esp32.esp32.esp32doit-devkit-v1/coleira-smart.ino.elf"
+firmware = "esp32.esp32.esp32doit-devkit-v1/coleira-smart.ino.bin"
+elf = "esp32.esp32.esp32doit-devkit-v1/coleira-smart.ino.elf"

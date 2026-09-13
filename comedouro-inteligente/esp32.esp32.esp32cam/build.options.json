@@ -1,0 +1,9 @@
+{
+  "additionalFiles": "..\\..",
+  "compiler.optimization_flags": "-Os",
+  "customBuildProperties": "",
+  "fqbn": "esp32:esp32:esp32cam",
+  "hardwareFolders": "C:\\ac\\data\\packages\\esp32\\hardware\\esp32\\3.3.11,C:\\ac\\data\\packages\\esp32\\hardware\\esp32\\3.3.11",
+  "otherLibrariesFolders": "C:\\ac\\user\\libraries",
+  "sketchLocation": "D:\\2-TDSPG\\Challenge-2026\\IOT\\Disruptive-Architectures\\comedouro-inteligente"
+}

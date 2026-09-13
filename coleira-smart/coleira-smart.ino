@@ -4,10 +4,11 @@
 
   Objetivo:
   - Detectar atividade do pet usando MPU6050
-  - Classificar:
-      repouso
-      ativo
-      muito_ativo
+  - Classificar (mesmos valores aceitos pelo CHECK de
+    LEITURA_COLEIRA.status_atividade no banco):
+      SEDENTARIO
+      MODERADO
+      ATIVO
 
 */
 
@@ -62,6 +63,10 @@ const bool MODO_DEMO = true;
 // =====================================================
 // LIMITES DE MOVIMENTO
 // =====================================================
+// Nomes internos (REPOUSO/ATIVO/MUITO_ATIVO) ficaram como estavam por
+// não afetar nada fora do .ino — só os valores publicados (as strings
+// "SEDENTARIO"/"MODERADO"/"ATIVO") precisam bater com o CHECK de
+// LEITURA_COLEIRA.status_atividade no banco.
 
 const float ZONA_MORTA = 0.18;
 
@@ -90,8 +95,8 @@ const unsigned long TEMPO_CONFIRMAR_ATIVO = 2000;
 const unsigned long TEMPO_CONFIRMAR_REPOUSO = 3000;
 const unsigned long TEMPO_CORRIDA_CONTINUA = 8000;
 
-String statusAtual = "repouso";
-String statusCandidato = "repouso";
+String statusAtual = "SEDENTARIO";
+String statusCandidato = "SEDENTARIO";
 
 unsigned long inicioStatusCandidato = 0;
 unsigned long inicioMuitoAtivo = 0;
@@ -138,7 +143,7 @@ float variacaoAceleracao = 0.0;
 float velocidadeMovimento = 0.0;
 float velocidadeMovimentoFiltrada = 0.0;
 
-String statusBrutoAtual = "repouso";
+String statusBrutoAtual = "SEDENTARIO";
 
 bool alertaInatividadeAtual = false;
 
@@ -286,36 +291,36 @@ void atualizarMediaJanela(float velocidade) {
 String classificarStatusBruto(float velocidadeFiltrada, float velocidadeMedia) {
 
   if (velocidadeFiltrada < LIMITE_REPOUSO && velocidadeMedia < LIMITE_REPOUSO) {
-    return "repouso";
+    return "SEDENTARIO";
   }
 
   if (velocidadeMedia >= LIMITE_MUITO_ATIVO || velocidadeFiltrada >= (LIMITE_MUITO_ATIVO + 0.50)) {
-    return "muito_ativo";
+    return "ATIVO";
   }
 
   if (velocidadeFiltrada >= LIMITE_ATIVO || velocidadeMedia >= LIMITE_ATIVO) {
-    return "ativo";
+    return "MODERADO";
   }
 
-  return "repouso";
+  return "SEDENTARIO";
 }
 
 String confirmarStatus(String statusBruto) {
   unsigned long agora = millis();
 
-  if (statusBruto == "muito_ativo") {
+  if (statusBruto == "ATIVO") {
     if (inicioMuitoAtivo == 0) {
       inicioMuitoAtivo = agora;
     }
 
     if (agora - inicioMuitoAtivo >= TEMPO_CORRIDA_CONTINUA) {
-      statusAtual = "muito_ativo";
-      statusCandidato = "muito_ativo";
+      statusAtual = "ATIVO";
+      statusCandidato = "ATIVO";
       inicioStatusCandidato = agora;
       return statusAtual;
     }
 
-    statusAtual = "ativo";
+    statusAtual = "MODERADO";
     return statusAtual;
   }
   inicioMuitoAtivo = 0;
@@ -328,12 +333,12 @@ String confirmarStatus(String statusBruto) {
 
   unsigned long tempoCandidato = agora - inicioStatusCandidato;
 
-  if (statusBruto == "ativo" && tempoCandidato >= TEMPO_CONFIRMAR_ATIVO) {
-    statusAtual = "ativo";
+  if (statusBruto == "MODERADO" && tempoCandidato >= TEMPO_CONFIRMAR_ATIVO) {
+    statusAtual = "MODERADO";
   }
 
-  if (statusBruto == "repouso" && tempoCandidato >= TEMPO_CONFIRMAR_REPOUSO) {
-    statusAtual = "repouso";
+  if (statusBruto == "SEDENTARIO" && tempoCandidato >= TEMPO_CONFIRMAR_REPOUSO) {
+    statusAtual = "SEDENTARIO";
   }
 
   return statusAtual;
@@ -512,7 +517,7 @@ void processarLeituraSensor() {
 
   String statusConfirmado = confirmarStatus(statusBrutoAtual);
 
-  if (statusConfirmado == "ativo" || statusConfirmado == "muito_ativo") {
+  if (statusConfirmado == "MODERADO" || statusConfirmado == "ATIVO") {
     ultimoMovimentoConfirmado = agora;
   }
 

@@ -1,14 +1,13 @@
-# 🐾 PetCare Hub — Coleira Smart IoT
+# 🐾 PetCare Hub — IoT (Coleira Smart + Comedouro Inteligente)
 
-Protótipo IoT desenvolvido para o **Challenge FIAP 2026 — CLYVO VET**.
+Protótipo IoT desenvolvido para o **Challenge FIAP 2026 — CLYVO VET**, disciplina **Disruptive Architectures**.
 
-A proposta da **Coleira Smart** é monitorar a movimentação do pet em tempo real usando um **ESP32** com sensor **MPU6050**, classificando o comportamento do animal como:
+Este repositório reúne os dois dispositivos IoT do PetCare Hub:
 
-- `repouso`
-- `ativo`
-- `muito_ativo`
+- **Coleira Smart** — monitora a movimentação do pet em tempo real usando um **ESP32** com sensor **MPU6050**, classificando o comportamento do animal como `SEDENTARIO`, `MODERADO` ou `ATIVO`.
+- **Comedouro Inteligente** — mede nível de ração (HC-SR04) e temperatura ambiente (DHT22), e usa uma **câmera** (ESP32-CAM, abordagem **PetCare Vision**) para estimar o percentual de ração consumida comparando o brilho do prato ao longo do tempo.
 
-Os dados são enviados via **MQTT** para um dashboard web, permitindo acompanhar a atividade do pet em tempo real.
+Os dois enviam dados via **MQTT** — a coleira já tem um dashboard web dedicado; ver a seção [🧠 PetCare AI — Sprint 3](#-petcare-ai--sprint-3-disruptive-architectures) pra como esses dados (mais os do resto do PetCare Hub) alimentam a camada de IA definida para esta sprint.
 
 ---
 
@@ -40,11 +39,16 @@ A **Coleira Smart** propõe uma forma de acompanhamento contínuo, permitindo ge
 
 | Tecnologia | Uso no projeto |
 |---|---|
-| ESP32 | Microcontrolador principal |
-| MPU6050 | Sensor de aceleração/movimento |
-| Wokwi | Simulação do circuito |
-| C++ / Arduino | Programação do firmware |
-| MQTT | Comunicação entre ESP32 e dashboard |
+| ESP32 | Microcontrolador da coleira |
+| ESP32-CAM (AI-Thinker) | Microcontrolador + câmera do comedouro |
+| MPU6050 | Sensor de aceleração/movimento (coleira) |
+| Câmera OV2640 | Estimativa de ração consumida — PetCare Vision (comedouro) |
+| HC-SR04 | Nível do reservatório de ração (comedouro) |
+| DHT22 | Temperatura ambiente (comedouro) |
+| Servo motor | Liberação de ração (comedouro) |
+| Wokwi | Simulação dos dois circuitos |
+| C++ / Arduino | Programação dos dois firmwares |
+| MQTT | Comunicação entre os ESP32 e o dashboard |
 | HiveMQ Broker | Broker MQTT público utilizado nos testes |
 | HTML | Estrutura do dashboard |
 | CSS | Estilização do dashboard |
@@ -55,16 +59,16 @@ A **Coleira Smart** propõe uma forma de acompanhamento contínuo, permitindo ge
 ## 🧩 Arquitetura da Solução
 
 ```text
-MPU6050
-   ↓
-ESP32
-   ↓ Wi-Fi
-MQTT Broker HiveMQ
-   ↓
-Dashboard Web
+MPU6050                          HC-SR04 + DHT22 + Câmera OV2640
+   ↓                                        ↓
+ESP32 (coleira)                  ESP32-CAM (comedouro)
+   ↓ Wi-Fi                                  ↓ Wi-Fi
+        MQTT Broker HiveMQ (tópicos separados)
+                    ↓
+   Dashboard Web (assina a coleira) · API Java (persiste os dois)
 ```
 
-Fluxo completo:
+Fluxo completo (coleira):
 
 ```text
 Sensor lê o movimento
@@ -80,11 +84,25 @@ Dashboard assina o tópico MQTT
 Dashboard exibe os dados em tempo real
 ```
 
+Fluxo completo (comedouro):
+
+```text
+HC-SR04 lê a distância até a ração → nível do reservatório
+Câmera captura o brilho médio do prato → percentual consumido
+DHT22 lê a temperatura ambiente
+        ↓
+ESP32-CAM calcula status (normal / racao_baixa / temperatura_elevada)
+        ↓
+ESP32-CAM publica os dados via MQTT
+        ↓
+(ainda sem dashboard dedicado — ver "Resultados Parciais" abaixo)
+```
+
 ---
 
 ## 📡 Comunicação MQTT
 
-O projeto utiliza **MQTT** para enviar os dados da coleira para o dashboard.
+O projeto utiliza **MQTT** para enviar os dados da coleira e do comedouro.
 
 MQTT é um protocolo leve muito usado em IoT. Ele permite que um dispositivo pequeno, como o ESP32, publique mensagens em um canal chamado **tópico**, enquanto outro sistema, como o dashboard, assina esse mesmo tópico para receber os dados em tempo real.
 
@@ -109,22 +127,31 @@ wss://broker.hivemq.com:8884/mqtt
 ### Tópicos MQTT
 
 ```text
+# Coleira
 petcarehub/fiap/coleira01/telemetria
 petcarehub/fiap/coleira01/status
 petcarehub/fiap/coleira01/alerta
+
+# Comedouro
+petcarehub/fiap/comedouro01/telemetria
+petcarehub/fiap/comedouro01/status
+petcarehub/fiap/comedouro01/alerta
 ```
 
-### Tópico principal
+### Tópicos principais
 
 ```text
 petcarehub/fiap/coleira01/telemetria
+petcarehub/fiap/comedouro01/telemetria
 ```
 
-Esse tópico recebe os dados completos da coleira em formato JSON.
+Esses tópicos recebem os dados completos de cada dispositivo em formato JSON. O dashboard web atual assina só o da coleira — ver [Resultados Parciais](#-resultados-parciais-sprint-3).
 
 ---
 
 ## 📊 Exemplo de JSON Enviado
+
+### Coleira
 
 ```json
 {
@@ -138,8 +165,8 @@ Esse tópico recebe os dados completos da coleira em formato JSON.
   "velocidadeMovimento": 1.230,
   "velocidadeMovimentoFiltrada": 1.050,
   "velocidadeMediaJanela": 0.980,
-  "statusBruto": "ativo",
-  "status": "ativo",
+  "statusBruto": "MODERADO",
+  "status": "MODERADO",
   "bateria": 98,
   "alertaInatividade": false,
   "wifi": true,
@@ -149,6 +176,27 @@ Esse tópico recebe os dados completos da coleira em formato JSON.
 }
 ```
 
+### Comedouro
+
+```json
+{
+  "modulo": "comedouro",
+  "nivelRacao": 78,
+  "percentualConsumido": 32.5,
+  "pesoConsumidoG": 13.0,
+  "temperaturaAmbiente": 27.2,
+  "status": "normal",
+  "alerta": false,
+  "cameraDisponivel": true,
+  "wifi": true,
+  "mqtt": true,
+  "modoDemo": true,
+  "uptimeMs": 12000
+}
+```
+
+`percentualConsumido` e `pesoConsumidoG` vêm da câmera (PetCare Vision — ver [🧠 PetCare AI — Sprint 3](#-petcare-ai--sprint-3-disruptive-architectures)): o ESP32-CAM compara o brilho médio do prato agora contra uma referência de "prato cheio" e converte esse percentual em gramas usando uma constante de calibração do pote (pote cheio = 40g = 100%).
+
 ---
 
 ## 🐕 Classificação de Atividade
@@ -157,61 +205,96 @@ A coleira não calcula velocidade real em km/h, pois isso exigiria GPS.
 
 Em vez disso, o projeto calcula a **velocidade de movimento**, baseada na variação da aceleração medida pelo MPU6050.
 
+> Os três valores (`SEDENTARIO`, `MODERADO`, `ATIVO`) não são uma escolha livre — são exatamente
+> os aceitos pelo `CHECK` de `LEITURA_COLEIRA.status_atividade` no banco Oracle. O ESP32 já
+> publica essas strings prontas via MQTT, sem precisar de nenhuma tradução no Java antes de
+> persistir. `SEDENTARIO` também é o valor que já dispara automaticamente um alerta
+> `ATIVIDADE_BAIXA` do lado do banco (`PRC_INS_LEITURA_COLEIRA`).
+
 ### Regras utilizadas
 
 | Situação | Classificação |
 |---|---|
-| Pouco ou nenhum movimento | `repouso` |
-| Movimento moderado, semelhante a passeio | `ativo` |
-| Movimento forte por tempo contínuo | `muito_ativo` |
-| Pequeno pico isolado | Não muda imediatamente para `muito_ativo` |
+| Pouco ou nenhum movimento | `SEDENTARIO` |
+| Movimento moderado, semelhante a passeio | `MODERADO` |
+| Movimento forte por tempo contínuo | `ATIVO` |
+| Pequeno pico isolado | Não muda imediatamente para `ATIVO` |
 
-O status `muito_ativo` só é confirmado quando o movimento intenso permanece por vários segundos. Isso evita falsos positivos causados por pequenas mexidas na coleira.
+O status `ATIVO` só é confirmado quando o movimento intenso permanece por vários segundos. Isso evita falsos positivos causados por pequenas mexidas na coleira.
+
+---
+
+## 🍽️ Cálculo de Consumo do Comedouro (PetCare Vision)
+
+O comedouro **não usa mais célula de carga (HX711)** para medir quanto o pet comeu — essa leitura foi substituída por uma **câmera** (ESP32-CAM), abordagem chamada de **PetCare Vision** (visão computacional clássica, sem LLM — ver [🧠 PetCare AI — Sprint 3](#-petcare-ai--sprint-3-disruptive-architectures) pra entender a diferença entre as duas capacidades de IA do produto).
+
+### Como funciona
+
+1. Ao ligar (ou depois de reabastecer), o ESP32-CAM tira uma foto do prato e guarda o **brilho médio** dela como referência de "prato cheio".
+2. Periodicamente, tira uma nova foto e compara o brilho atual contra essa referência.
+3. Quanto maior a diferença de brilho, maior o `percentualConsumido`.
+4. O peso em gramas (`pesoConsumidoG`) é calculado a partir desse percentual e de uma constante de calibração do pote (pote cheio = 40g = 100%) — não vem mais de sensor nenhum.
+
+### Limitação conhecida no Wokwi
+
+A câmera simulada do Wokwi sempre devolve o mesmo quadro de teste (não muda com o "conteúdo do prato"), então o percentual calculado a partir da imagem real fica travado perto de 0%. Por isso o firmware tem um `MODO_DEMO` (igual à coleira) que sobrepõe uma curva de consumo simulada só para efeito de demonstração — em hardware físico, com `MODO_DEMO = false`, o valor vem inteiramente do brilho capturado pela câmera de verdade.
 
 ---
 
 ## 🧪 Modo Demo e Modo Físico
 
-O código possui dois modos de funcionamento.
+Os dois firmwares (coleira e comedouro) têm o mesmo padrão de dois modos.
 
 ### Modo Demo
 
-Usado no Wokwi para demonstrar automaticamente os estados da coleira.
+Usado no Wokwi para demonstrar automaticamente os estados do dispositivo, já que os sensores simulados (MPU6050 parado, câmera com quadro fixo) sozinhos não gerariam variação nenhuma pra mostrar.
 
 ```cpp
 const bool MODO_DEMO = true;
 ```
 
-Nesse modo, a simulação alterna entre `repouso`, `ativo` e `muito_ativo` para facilitar a apresentação.
+Na coleira, alterna entre `SEDENTARIO`, `MODERADO` e `ATIVO`. No comedouro, sobrepõe uma curva de consumo ao percentual calculado pela câmera.
 
 ### Modo Físico
 
-Usado no ESP32 real com MPU6050 físico.
+Usado no hardware real (ESP32 com MPU6050 físico, ou ESP32-CAM físico).
 
 ```cpp
 const bool MODO_DEMO = false;
 ```
 
-Nesse modo, o status muda apenas conforme o movimento real detectado pelo sensor.
+Nesse modo, o status muda apenas conforme o que o sensor (ou a câmera) realmente detectar.
 
 ---
 
 ## 🛠️ Estrutura do Projeto
 
 ```text
-petcarehub-coleira-smart/
+Disruptive-Architectures/
 ├── coleira-smart/
 │   ├── coleira-smart.ino
 │   ├── diagram.json
-│   └── libraries.txt
+│   ├── libraries.txt
+│   └── wokwi.toml
 │
-├── dashboard-coleira/
+├── comedouro-inteligente/
+│   ├── comedouro-inteligente.ino
+│   ├── diagram.json
+│   ├── libraries.txt
+│   └── wokwi.toml
+│
+├── dashboard/
 │   ├── index.html
 │   ├── css/
 │   │   └── styles.css
 │   └── js/
 │       └── app.js
 │
+├── entrega/
+│   ├── link-github.txt
+│   └── link-video-youtube.txt
+│
+├── PETCARE_AI_ 1.pdf            ← especificação da PetCare AI (Sprint 3) — ver seção abaixo
 └── README.md
 ```
 
@@ -219,39 +302,58 @@ petcarehub-coleira-smart/
 
 ## ▶️ Como Executar no Wokwi
 
-### 1. Abrir o projeto no Wokwi
+### Coleira Smart
 
-Abra a pasta `coleira-smart` no Wokwi.
-
-Ela deve conter:
+Abra a pasta `coleira-smart` no Wokwi. Ela deve conter:
 
 ```text
 coleira-smart.ino
 diagram.json
 libraries.txt
+wokwi.toml
 ```
 
-### 2. Verificar o arquivo `libraries.txt`
+O `libraries.txt` precisa conter `PubSubClient` (comunicação MQTT).
 
-O arquivo `libraries.txt` precisa conter:
-
-```text
-PubSubClient
-```
-
-Essa biblioteca é necessária para a comunicação MQTT.
-
-### 3. Rodar a simulação
-
-Clique em **Start Simulation**.
-
-No Serial Monitor, devem aparecer mensagens parecidas com:
+Clique em **Start Simulation**. No Serial Monitor, devem aparecer mensagens parecidas com:
 
 ```json
 {
   "modulo": "coleira_smart",
-  "status": "ativo",
+  "status": "MODERADO",
   "velocidadeMovimentoFiltrada": 1.05,
+  "wifi": true,
+  "mqtt": true
+}
+```
+
+### Comedouro Inteligente
+
+Abra a pasta `comedouro-inteligente` no Wokwi. Ela deve conter:
+
+```text
+comedouro-inteligente.ino
+diagram.json
+libraries.txt
+wokwi.toml
+```
+
+O `libraries.txt` precisa conter `DHT sensor library for ESPx` e `PubSubClient`.
+
+> **Se o `wokwi.toml` reclamar de firmware/elf ausente**: os binários pré-compilados
+> (`esp32.esp32.esp32cam/comedouro-inteligente.ino.{bin,elf}`) precisam ser gerados uma vez
+> via Arduino IDE/`arduino-cli` (placa **AI Thinker ESP32-CAM**) e commitados nessa pasta —
+> ver [Como Executar no ESP32-CAM Físico](#-como-executar-no-esp32-cam-físico-comedouro).
+> Sem isso, abra o `.ino` direto em [wokwi.com](https://wokwi.com) e deixe o compilador online
+> do próprio Wokwi compilar (mais lento, mas não depende de binário commitado).
+
+Clique em **Start Simulation**. No Serial Monitor, devem aparecer mensagens parecidas com:
+
+```json
+{
+  "modulo": "comedouro",
+  "status": "normal",
+  "percentualConsumido": 12.5,
   "wifi": true,
   "mqtt": true
 }
@@ -264,7 +366,7 @@ No Serial Monitor, devem aparecer mensagens parecidas com:
 Abra o arquivo:
 
 ```text
-dashboard-coleira/index.html
+dashboard/index.html
 ```
 
 O dashboard irá se conectar ao broker MQTT e assinar o tópico:
@@ -277,7 +379,7 @@ Quando o ESP32 publicar os dados, o dashboard será atualizado automaticamente.
 
 ---
 
-## 🔧 Como Executar no ESP32 Físico
+## 🔧 Como Executar no ESP32 Físico (Coleira)
 
 ### 1. Instalar bibliotecas
 
@@ -344,6 +446,45 @@ Depois clique em **Upload**.
 
 ---
 
+## 🔧 Como Executar no ESP32-CAM Físico (Comedouro)
+
+### 1. Instalar bibliotecas
+
+Na Arduino IDE, instale `PubSubClient` e `DHT sensor library for ESPx` (Sketch → Include Library → Manage Libraries). O suporte à câmera (`esp_camera.h`) já vem embutido no core ESP32 — não precisa instalar nada à parte.
+
+### 2. Selecionar a placa certa
+
+```text
+Tools → Board → AI Thinker ESP32-CAM
+```
+
+A pinagem da câmera no código (`PWDN_GPIO_NUM`, `XCLK_GPIO_NUM`, etc.) é fixa e específica desse módulo — só funciona com essa placa selecionada.
+
+### 3. Configurar Wi-Fi e desativar o modo demo
+
+Mesmos passos da coleira (seções 2 e 3 acima), no arquivo `comedouro-inteligente.ino`.
+
+### 4. Ligações dos sensores
+
+| Componente | ESP32-CAM |
+|---|---|
+| HC-SR04 TRIG | GPIO 13 |
+| HC-SR04 ECHO | GPIO 12 |
+| DHT22 SDA | GPIO 14 |
+| Servo PWM | GPIO 15 |
+
+A câmera OV2640 já vem soldada ao módulo AI-Thinker — não tem fiação extra pra fazer.
+
+### 5. Gravar o firmware
+
+O ESP32-CAM não tem porta USB própria — é preciso um adaptador FTDI (USB-Serial), ligando GPIO0 ao GND **antes** de ligar a placa (modo de gravação), gravar, depois desligar essa ligação e resetar pra rodar o programa normalmente. Na Arduino IDE, **Upload** como de costume depois de entrar em modo de gravação.
+
+### 6. Gerar os binários pré-compilados para o Wokwi
+
+Depois de compilar com sucesso pela Arduino IDE (ou `arduino-cli compile --fqbn esp32:esp32:esp32cam`), copie a pasta de build gerada (`esp32.esp32.esp32cam/`, com os arquivos `.bin`/`.elf`) para dentro de `comedouro-inteligente/`, no mesmo padrão já usado pela coleira. Isso é necessário porque o `build/` local não é versionado (`.gitignore`), e o `wokwi.toml` do comedouro depende desses arquivos existirem no repositório para rodar sem precisar recompilar.
+
+---
+
 ## 📺 Demonstração em Vídeo
 
 O vídeo de apresentação deve demonstrar:
@@ -352,14 +493,14 @@ O vídeo de apresentação deve demonstrar:
 2. A simulação da coleira no Wokwi;
 3. O envio dos dados via MQTT;
 4. O dashboard recebendo os dados em tempo real;
-5. A mudança entre `repouso`, `ativo` e `muito_ativo`;
+5. A mudança entre `SEDENTARIO`, `MODERADO` e `ATIVO`;
 6. O alerta de inatividade;
 7. A explicação do modo demo e do modo físico.
 
 Link do vídeo:
 
 ```text
-Adicionar link do YouTube não listado aqui
+https://youtu.be/ss0ONo7hGNA
 ```
 
 ---
@@ -368,10 +509,63 @@ Adicionar link do YouTube não listado aqui
 
 - O projeto não mede temperatura corporal do pet.
 - A bateria exibida no dashboard é simulada.
-- O status `muito_ativo` exige movimento intenso por tempo contínuo.
+- O status `ATIVO` exige movimento intenso por tempo contínuo.
 - O dashboard precisa usar o mesmo tópico MQTT configurado no ESP32.
 - Em redes Wi-Fi públicas ou corporativas, a porta MQTT pode ser bloqueada.
 - Para medição de velocidade real em km/h seria necessário adicionar GPS ao protótipo.
+- O percentual de ração consumida do comedouro (PetCare Vision) usa brilho médio da imagem, não reconhecimento de objeto — é uma aproximação, sensível a mudança de iluminação no ambiente real.
+- No Wokwi, a câmera do comedouro sempre devolve o mesmo quadro de teste — o percentual mostrado na simulação depende do `MODO_DEMO`, não da imagem em si.
+
+---
+
+## 🧠 PetCare AI — Sprint 3 (Disruptive Architectures)
+
+Especificação completa: [`PETCARE_AI_ 1.pdf`](PETCARE_AI_%201.pdf). Esta seção é um resumo — **é um documento de design, não uma implementação**; nenhum código de LLM/RAG está neste (ou em nenhum outro) repositório do PetCare Hub ainda.
+
+### O problema
+
+O PetCare Hub já coleta continuamente dados reais da rotina do pet (movimento pela coleira, alimentação pelo comedouro, condições ambientais) e já calcula um Score de Saúde (0-100) e alertas. O problema é que dado bruto e um número de score, sozinhos, não dizem *por que* algo mudou nem *o que fazer* a respeito. A PetCare AI existe pra preencher essa lacuna: interpreta o contexto do pet e traduz isso numa orientação simples e acionável — **nunca diagnostica, nunca substitui o veterinário**.
+
+### Arquitetura: LLM + RAG
+
+1. **IoT → Java → Oracle** (este repositório): coleira e comedouro enviam leituras via MQTT; o Java persiste.
+2. **Cálculo determinístico** (sem IA): o Java calcula variação percentual dos indicadores e o nível de urgência, a partir das faixas do Score de Saúde já existentes (80-100 baixa, 50-79 média, 0-49 alta).
+3. **RAG (Retrieval-Augmented Generation)**: o Java consulta uma base de conhecimento veterinário, filtrando por espécie/idade/porte do pet.
+4. **LLM**: recebe os dados já calculados (incluindo a urgência) e as diretrizes recuperadas, e tem uma responsabilidade deliberadamente restrita — explicar em linguagem humana por que aquele padrão é relevante, e escolher uma ação sugerida dentro de uma lista fechada. A LLM nunca decide nem pode contradizer a urgência que o sistema já calculou.
+5. **Validação**: se algum campo vier fora do formato esperado, o Java corrige ou usa um valor seguro padrão antes de repassar ao Mobile.
+
+### Dados utilizados
+
+Cadastro do pet, leituras da coleira e do comedouro, Score de Saúde (atual e histórico), alertas, histórico recente, consultas e eventos preventivos, e uma base de conhecimento veterinário. A IA nunca acessa o banco diretamente — todo o contexto é montado e controlado pelo Java.
+
+### Personalização
+
+Em três camadas, todas na etapa determinística (antes da LLM entrar em cena): perfil individual do pet (espécie/idade/porte filtram as diretrizes do RAG), baseline próprio do pet (não uma média populacional) e contexto clínico do próprio pet (evita repetir sugestão já tomada, evita interpretar como anomalia um efeito esperado de um cuidado recente).
+
+### PetCare AI vs. PetCare Vision
+
+São duas capacidades de IA distintas no produto:
+
+- **PetCare AI** — a camada de LLM + RAG acima: interpreta contexto e explica em linguagem humana.
+- **PetCare Vision** — visão computacional clássica (sem LLM), usada só no comedouro: compara o brilho do prato antes/depois da refeição pra estimar o percentual de ração consumida. Diferente da PetCare AI, essa parte **já está implementada** neste repositório — ver [Cálculo de Consumo do Comedouro](#-cálculo-de-consumo-do-comedouro-petcare-vision) acima.
+
+---
+
+## ✅ Resultados Parciais (Sprint 3)
+
+O que está **implementado e funcionando** neste repositório:
+
+| Item | Status |
+|---|---|
+| Coleira Smart (ESP32 + MPU6050 real, classificação com filtro anti-falso-positivo) | ✅ Implementado |
+| Coleira → MQTT (3 tópicos) → Dashboard web em tempo real | ✅ Implementado |
+| Comedouro: nível de ração (HC-SR04) e temperatura (DHT22) | ✅ Implementado, sensor real |
+| Comedouro: percentual de ração consumida via câmera (PetCare Vision) | ✅ Implementado (captura real + cálculo de brilho); percentual exibido no Wokwi usa `MODO_DEMO` porque a câmera simulada não varia o quadro |
+| Comedouro → MQTT (3 tópicos) | ✅ Implementado |
+| Comedouro → Dashboard web | ❌ Não existe ainda — dashboard atual só assina o tópico da coleira |
+| PetCare AI (LLM + RAG, telas do Mobile) | ❌ Não implementado — só especificado no `PETCARE_AI_ 1.pdf` (documento de design desta sprint) |
+
+Os exemplos de saída da PetCare AI no PDF (ex.: a explicação de texto sobre o pet "Rex") são **ilustrativos** — mostram o formato de resposta esperado da funcionalidade quando implementada, não uma execução real do sistema (que ainda não existe).
 
 ---
 

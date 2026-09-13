@@ -1,4 +1,4 @@
 [wokwi]
 version = 1
-elf = "build/esp32.esp32.esp32doit-devkit-v1/comedouro-inteligente.ino.elf"
-firmware = "build/esp32.esp32.esp32doit-devkit-v1/comedouro-inteligente.ino.bin"
+elf = "esp32.esp32.esp32cam/comedouro-inteligente.ino.elf"
+firmware = "esp32.esp32.esp32cam/comedouro-inteligente.ino.bin"

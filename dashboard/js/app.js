@@ -116,11 +116,13 @@ function addLog(message) {
   }
 }
 
+// Mesmos 3 valores aceitos pelo CHECK de LEITURA_COLEIRA.status_atividade
+// no banco — o ESP32 já publica exatamente essas strings (maiúsculas).
 function getStatusDescription(status) {
   const descriptions = {
-    repouso: "O pet está com baixa movimentação. Situação normal para descanso.",
-    ativo: "O pet está em atividade moderada, semelhante a passeio ou movimentação leve.",
-    muito_ativo: "O pet está com movimento intenso por tempo contínuo, indicando corrida ou agitação."
+    SEDENTARIO: "O pet está com baixa movimentação. Situação normal para descanso.",
+    MODERADO: "O pet está em atividade moderada, semelhante a passeio ou movimentação leve.",
+    ATIVO: "O pet está com movimento intenso por tempo contínuo, indicando corrida ou agitação."
   };
 
   return descriptions[status] ?? "Status ainda não identificado.";
@@ -129,7 +131,7 @@ function getStatusDescription(status) {
 function updateStatusCard(status, hasAlert) {
   const normalizedStatus = status || "---";
 
-  elements.statusPill.textContent = normalizedStatus.replace("_", " ");
+  elements.statusPill.textContent = normalizedStatus;
   elements.statusPill.className = "status-pill";
 
   if (hasAlert) {
@@ -139,14 +141,14 @@ function updateStatusCard(status, hasAlert) {
     return;
   }
 
-  if (normalizedStatus === "repouso") {
-    elements.statusPill.classList.add("status-repouso");
-  } else if (normalizedStatus === "ativo") {
+  if (normalizedStatus === "SEDENTARIO") {
+    elements.statusPill.classList.add("status-sedentario");
+  } else if (normalizedStatus === "MODERADO") {
+    elements.statusPill.classList.add("status-moderado");
+  } else if (normalizedStatus === "ATIVO") {
     elements.statusPill.classList.add("status-ativo");
-  } else if (normalizedStatus === "muito_ativo") {
-    elements.statusPill.classList.add("status-muito_ativo");
   } else {
-    elements.statusPill.classList.add("status-repouso");
+    elements.statusPill.classList.add("status-sedentario");
   }
 
   elements.statusDescription.textContent = getStatusDescription(normalizedStatus);
