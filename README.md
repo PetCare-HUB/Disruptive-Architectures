@@ -551,24 +551,6 @@ São duas capacidades de IA distintas no produto:
 
 ---
 
-## ✅ Resultados Parciais (Sprint 3)
-
-O que está **implementado e funcionando** neste repositório:
-
-| Item | Status |
-|---|---|
-| Coleira Smart (ESP32 + MPU6050 real, classificação com filtro anti-falso-positivo) | ✅ Implementado |
-| Coleira → MQTT (3 tópicos) → Dashboard web em tempo real | ✅ Implementado |
-| Comedouro: nível de ração (HC-SR04) e temperatura (DHT22) | ✅ Implementado, sensor real |
-| Comedouro: percentual de ração consumida via câmera (PetCare Vision) | ✅ Implementado (captura real + cálculo de brilho); percentual exibido no Wokwi usa `MODO_DEMO` porque a câmera simulada não varia o quadro |
-| Comedouro → MQTT (3 tópicos) | ✅ Implementado |
-| Comedouro → Dashboard web | ❌ Não existe ainda — dashboard atual só assina o tópico da coleira |
-| PetCare AI (LLM + RAG, telas do Mobile) | ❌ Não implementado — só especificado no `PETCARE_AI_ 1.pdf` (documento de design desta sprint) |
-
-Os exemplos de saída da PetCare AI no PDF (ex.: a explicação de texto sobre o pet "Rex") são **ilustrativos** — mostram o formato de resposta esperado da funcionalidade quando implementada, não uma execução real do sistema (que ainda não existe).
-
----
-
 ## 👥 Integrantes da Equipe
 
 | Nome | RM | Turma | GitHub | LinkedIn |
