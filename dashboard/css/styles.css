@@ -27,6 +27,35 @@
   box-sizing: border-box;
 }
 
+.device-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.device-nav a {
+  padding: 12px 18px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--text);
+  text-decoration: none;
+  font-weight: 700;
+}
+
+.device-nav a[aria-current="page"] {
+  background: var(--blue);
+  color: white;
+}
+
+.device-nav a:focus-visible { outline: 3px solid var(--blue); outline-offset: 3px; }
+.chart-legend { display: flex; flex-wrap: wrap; gap: 18px; margin-bottom: 12px; font-size: 13px; }
+.legend-reservoir { color: var(--blue); }
+.legend-bowl { color: var(--green); }
+.card { min-width: 0; }
+.status-pill { overflow-wrap: anywhere; max-width: 100%; }
+
 body {
   margin: 0;
   font-family: Inter, Arial, Helvetica, sans-serif;
@@ -360,3 +389,43 @@ pre {
     grid-column: span 12;
   }
 }
+
+/* Laboratório virtual do comedouro */
+.simulator-panel { margin-bottom: 22px; }
+.sim-toolbar, .sim-controls { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; justify-content: space-between; }
+.sim-toolbar h2 { margin: 0; font-size: 22px; }
+.sim-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin: 22px 0; }
+.sim-controls { justify-content: flex-start; }
+.sim-controls[hidden] { display: none; }
+.sim-controls label, .sim-toolbar label { display: grid; gap: 7px; font-size: 13px; font-weight: 700; }
+.sim-controls button, .sim-controls select, .sim-toolbar select { min-height: 44px; padding: 10px 14px; border: 1px solid var(--border); border-radius: 10px; background: white; color: var(--text); font: inherit; cursor: pointer; }
+.sim-controls .primary-action { background: var(--blue); color: white; }
+.sim-controls button:disabled { opacity: .45; cursor: not-allowed; }
+.sim-controls button[aria-pressed="true"] { background: var(--green-bg); }
+.temperature-control { min-width: 150px; }
+.camera-panel canvas { height: auto; display: block; }
+.feeder-scene { height: 350px; position: relative; background: linear-gradient(#eaf3ff, #f7fafc); border-radius: 18px; overflow: hidden; }
+.scene-tag { position: absolute; top: 16px; left: 18px; font-size: 11px; letter-spacing: .08em; color: #476480; }
+.hopper { position: absolute; left: calc(45% - 60px); top: 45px; width: 120px; height: 108px; background: #e2e8f080; border: 5px solid #94a3b8; border-radius: 17px 17px 7px 7px; overflow: hidden; }
+.hopper-food { position: absolute; width: 100%; bottom: 0; background: radial-gradient(ellipse, #b58249 35%, transparent 40%) 0 0 / 12px 10px, #825730; transition: height .3s; }
+.hopper span { position: absolute; top: 30px; left: 25px; background: #ffffffd9; border-radius: 6px; padding: 6px; font-size: 12px; font-weight: 700; }
+.machine { position: absolute; top: 148px; left: calc(45% - 76px); width: 152px; height: 72px; background: #e2e8f0; border-radius: 12px 12px 22px 22px; box-shadow: inset -12px 0 #cbd5e1; text-align: center; padding: 14px; font-weight: 800; color: #475569; }
+.machine-led { width: 7px; height: 7px; border-radius: 50%; background: #16a34a; margin: 5px auto; }
+.spout { position: absolute; bottom: -12px; left: 57px; width: 38px; height: 21px; border-radius: 0 0 7px 7px; background: #475569; }
+.bowl { position: absolute; left: calc(45% - 76px); bottom: 40px; width: 152px; height: 42px; border-radius: 10px 10px 60px 60px; background: #3b82f6; border-top: 7px solid #93c5fd; overflow: hidden; z-index: 2; }
+.bowl-food { position: absolute; top: 0; left: 8px; right: 8px; height: 24px; border-radius: 50%; background: radial-gradient(ellipse, #c59052 35%, transparent 40%) 0 0 / 10px 8px, #805027; transform-origin: bottom; transition: transform .3s; }
+.virtual-pet { position: absolute; right: 10%; bottom: 42px; font-size: 75px; z-index: 3; transform: scaleX(-1); }
+.scene-floor { position: absolute; bottom: 39px; width: 100%; height: 3px; background: #cbd5e1; }
+.scene-caption { position: absolute; bottom: 0; text-align: center; width: 100%; font-size: 13px; color: #475569; }
+.grain-stream { position: absolute; top: 230px; left: calc(45% - 14px); width: 28px; height: 40px; visibility: hidden; }
+.grain-stream i { position: absolute; width: 7px; height: 5px; background: #986332; border-radius: 50%; animation: grain-fall .6s infinite linear; }
+.grain-stream i:nth-child(2) { left: 10px; animation-delay: -.2s; }
+.grain-stream i:nth-child(3) { left: 20px; animation-delay: -.4s; }
+.grain-stream i:nth-child(4) { left: 5px; animation-delay: -.3s; }
+.grain-stream i:nth-child(5) { left: 16px; animation-delay: -.1s; }
+.dispensing .grain-stream { visibility: visible; }
+.eating .virtual-pet { animation: pet-eat .6s infinite alternate; }
+@keyframes grain-fall { from { transform: translateY(0); } to { transform: translateY(43px); } }
+@keyframes pet-eat { from { transform: translateX(-15px) scaleX(-1) rotate(0deg); } to { transform: translateX(-20px) scaleX(-1) rotate(-12deg); } }
+@media (max-width: 700px) { .sim-layout { grid-template-columns: 1fr; } .virtual-pet { right: 5%; } .sim-toolbar select { max-width: 100%; } }
+@media (prefers-reduced-motion: reduce) { .grain-stream i, .eating .virtual-pet { animation: none; } .hopper-food, .bowl-food { transition: none; } }

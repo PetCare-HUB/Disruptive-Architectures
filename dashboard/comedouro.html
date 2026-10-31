@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PetCare Hub | Comedouro Inteligente</title>
+  <link rel="stylesheet" href="./css/styles.css" />
+  <script src="./js/comedouro.js" defer></script>
+  <script src="./js/simulacao.js" defer></script>
+</head>
+<body>
+  <main class="container">
+    <header class="topbar">
+      <section class="brand"><div class="logo">🐾</div><div><h1>PetCare Hub</h1><p class="subtitle">Comedouro Inteligente · laboratório virtual</p></div></section>
+      <aside class="connection-panel">
+        <div class="connection-line"><strong>Fonte dos dados</strong><span id="connectionBadge" class="badge disconnected">Desconectado</span></div>
+        <div class="topic"><strong>Tópico:</strong> petcarehub/fiap/comedouro01/telemetria</div>
+      </aside>
+    </header>
+    <nav class="device-nav" aria-label="Dispositivos"><a href="./index.html">Coleira Smart</a><a href="./comedouro.html" aria-current="page">Comedouro Inteligente</a></nav>
+    <section class="card simulator-panel" aria-label="Simulação do comedouro">
+      <div class="sim-toolbar"><div><h2>Veja a alimentação acontecer</h2><p class="hint">Simule o dispenser, a refeição e a visão do prato. Nenhum equipamento necessário.</p></div>
+        <label>Modo <select id="sourceMode"><option value="sim">Simulação no navegador</option><option value="mqtt">Wokwi / dispositivo via MQTT</option></select></label></div>
+      <div class="sim-layout">
+        <div class="feeder-scene" id="feederScene">
+          <span class="scene-tag">SIMULAÇÃO VISUAL</span>
+          <div class="hopper"><div id="hopperFood" class="hopper-food"></div><span>RAÇÃO</span></div>
+          <div class="machine"><span>PetCare</span><div class="machine-led"></div><div class="spout"></div></div>
+          <div class="grain-stream"><i></i><i></i><i></i><i></i><i></i></div>
+          <div class="bowl"><div id="bowlFood" class="bowl-food"></div></div>
+          <div id="virtualPet" class="virtual-pet" aria-label="Pet virtual">🐕</div>
+          <div class="scene-floor"></div>
+          <p id="sceneCaption" class="scene-caption">Pronto para dispensar</p>
+        </div>
+        <div class="camera-panel"><div class="card-header"><strong>Visão do prato</strong><span class="badge connecting">Câmera virtual</span></div>
+          <canvas id="virtualCamera" width="480" height="280" aria-label="Representação simulada do prato visto de cima"></canvas>
+          <p id="cameraCaption" class="hint">Imagem gerada pela simulação, sem câmera real.</p>
+          <p class="hint">Demonstra como o prato muda ao receber ração e durante a refeição. Não executa reconhecimento de imagens.</p>
+        </div>
+      </div>
+      <div id="simControls" class="sim-controls">
+        <label>Porção <select id="portion"><option value="5">5 g</option><option value="10" selected>10 g</option><option value="20">20 g</option><option value="40">40 g</option></select></label>
+        <button id="dispense" type="button" class="primary-action">Dispensar ração</button>
+        <button id="eat" type="button" aria-pressed="false">Pet comer</button>
+        <button id="refill" type="button">Reabastecer reservatório</button>
+        <button id="resetSim" type="button">Reiniciar</button>
+        <label class="temperature-control">Temperatura: <output id="simTempValue">26 °C</output><input id="simTemperature" type="range" min="15" max="40" value="26" aria-label="Temperatura ambiente simulada"></label>
+      </div>
+      <p id="simMessage" role="status" class="hint">Reservatório de 200 g · prato de até 40 g. Use “Dispensar ração” para começar.</p>
+    </section>
+    <p id="freshness" class="hint" role="status">Aguardando telemetria do comedouro.</p>
+    <section class="grid">
+      <article class="card span-4">
+        <div class="card-header"><div class="label">Status do comedouro</div><span id="lastUpdate">--:--:--</span></div>
+        <div id="statusPill" class="status-pill status-sedentario">Aguardando</div>
+        <p id="statusDescription" class="hint">Inicie o comedouro para acompanhar as leituras.</p>
+      </article>
+      <article class="card span-4">
+        <div class="card-header"><div class="label">Nível do reservatório</div></div>
+        <span id="levelValue" class="value">---</span><span class="value-sm"> %</span>
+        <div class="progress"><div id="levelProgress" class="progress-fill"></div></div>
+        <p id="levelHint" class="hint">Alerta quando o reservatório fica abaixo de 20%.</p>
+      </article>
+      <article class="card span-4">
+        <div class="card-header"><div class="label">Temperatura ambiente</div></div>
+        <span id="temperatureValue" class="value">---</span><span class="value-sm"> °C</span>
+        <p id="temperatureHint" class="hint">Temperatura do ambiente, não do pet. Limite: 32 °C.</p>
+      </article>
+      <article class="card span-4">
+        <div class="card-header"><div class="label">Ração restante no prato</div></div>
+        <span id="remainingValue" class="value">---</span><span class="value-sm"> %</span>
+        <div class="progress"><div id="remainingProgress" class="progress-fill"></div></div>
+        <p class="hint">Estimativa do prato, separada do nível do reservatório. Alerta em 15% ou menos.</p>
+        <div class="data-row"><span id="consumedLabel">Consumo estimado</span><strong id="consumedValue">---</strong></div>
+        <div class="data-row"><span id="weightLabel">Peso consumido estimado</span><strong id="weightValue">---</strong></div>
+        <p id="demoHint" class="hint">Aguardando informação sobre o modo de leitura.</p>
+      </article>
+      <article class="card span-8">
+        <div class="card-header"><div><div class="label">Alimentação em tempo real</div><p class="hint">Últimas 40 leituras recebidas · escala de 0 a 100%</p></div></div>
+        <div class="chart-legend"><span class="legend-reservoir">● Reservatório</span><span class="legend-bowl">● Ração restante no prato</span></div>
+        <canvas id="feedingChart" width="900" height="260" role="img" aria-label="Histórico do nível do reservatório e da ração restante no prato, em porcentagem"></canvas>
+      </article>
+      <article class="card span-4">
+        <div class="card-header"><div class="label">Resumo técnico</div></div>
+        <div class="data-list">
+          <div class="data-row"><span>Umidade ambiente</span><strong id="humidityValue">---</strong></div>
+          <div class="data-row"><span>Ciclos de porção desde o início</span><strong id="portionCount">---</strong></div>
+          <div class="data-row"><span>Estado do motor</span><strong id="motorState">---</strong></div>
+          <div class="data-row"><span>Modo demo</span><strong id="demoMode">---</strong></div>
+          <div class="data-row"><span>Câmera</span><strong id="cameraStatus">---</strong></div>
+          <div class="data-row"><span>Wi-Fi no dispositivo</span><strong id="wifiStatus">---</strong></div>
+          <div class="data-row"><span>MQTT no dispositivo</span><strong id="mqttStatus">---</strong></div>
+          <div class="data-row"><span>Alerta</span><strong id="alertStatus">---</strong></div>
+        </div>
+        <p class="hint">No teste ESP32-S3, o microinterruptor confirma ciclos de porção. Nível e consumo não são medidos. A visão acima é virtual; a câmera física tem teste próprio.</p>
+      </article>
+      <article class="card span-4"><div class="card-header"><div class="label">Último JSON recebido</div></div><pre id="jsonOutput">Aguardando mensagem MQTT...</pre></article>
+      <article class="card span-4"><div class="card-header"><div class="label">Log de eventos</div></div><div id="eventLog" class="log"></div></article>
+    </section>
+    <p class="footer-note">PetCare Hub — protótipo acadêmico de IoT para monitoramento preventivo da saúde do pet.</p>
+  </main>
+</body>
+</html>
