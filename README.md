@@ -1,3 +1,5 @@
+> **Comedouro atualizado em 18/09/2026:** siga [LEIA-ME do ESP32-S3](comedouro-inteligente/LEIA-ME.md). As tabelas e exemplos antigos de AI Thinker, servo, HC-SR04 e consumo por brilho abaixo são históricos e não descrevem o circuito atual.
+
 # 🐾 PetCare Hub — IoT (Coleira Smart + Comedouro Inteligente)
 
 Protótipo IoT desenvolvido para o **Challenge FIAP 2026 — CLYVO VET**, disciplina **Disruptive Architectures**.
@@ -5,9 +7,9 @@ Protótipo IoT desenvolvido para o **Challenge FIAP 2026 — CLYVO VET**, discip
 Este repositório reúne os dois dispositivos IoT do PetCare Hub:
 
 - **Coleira Smart** — monitora a movimentação do pet em tempo real usando um **ESP32** com sensor **MPU6050**, classificando o comportamento do animal como `SEDENTARIO`, `MODERADO` ou `ATIVO`.
-- **Comedouro Inteligente** — mede nível de ração (HC-SR04) e temperatura ambiente (DHT22), e usa uma **câmera** (ESP32-CAM, abordagem **PetCare Vision**) para estimar o percentual de ração consumida comparando o brilho do prato ao longo do tempo.
+- **Comedouro Inteligente** — em migração para ESP32-S3 N16R8 + OV5640, DHT11, motor DC com TB6612 e microinterruptor. O teste Wokwi valida a lógica de uma porção e as falhas com componentes substitutos. [Guia atual e limites da simulação](comedouro-inteligente/LEIA-ME.md).
 
-Os dois enviam dados via **MQTT** — a coleira já tem um dashboard web dedicado; ver a seção [🧠 PetCare AI — Sprint 3](#-petcare-ai--sprint-3-disruptive-architectures) pra como esses dados (mais os do resto do PetCare Hub) alimentam a camada de IA definida para esta sprint.
+Os dois têm páginas no **dashboard web** para acompanhar dados via **MQTT**. O comedouro também tem uma **simulação interativa no navegador**, com dispenser, pet comendo e câmera virtual, que funciona sem equipamento e sem internet. Ver a seção [🧠 PetCare AI — Sprint 3](#-petcare-ai--sprint-3-disruptive-architectures) pra como os dados dos dispositivos (mais os do resto do PetCare Hub) alimentam a camada de IA definida para esta sprint.
 
 ---
 
@@ -65,7 +67,7 @@ ESP32 (coleira)                  ESP32-CAM (comedouro)
    ↓ Wi-Fi                                  ↓ Wi-Fi
         MQTT Broker HiveMQ (tópicos separados)
                     ↓
-   Dashboard Web (assina a coleira) · API Java (persiste os dois)
+   Dashboard Web (páginas da coleira e do comedouro) · API Java (persiste os dois)
 ```
 
 Fluxo completo (coleira):
@@ -95,8 +97,10 @@ ESP32-CAM calcula status (normal / racao_baixa / temperatura_elevada)
         ↓
 ESP32-CAM publica os dados via MQTT
         ↓
-(ainda sem dashboard dedicado — ver "Resultados Parciais" abaixo)
+Dashboard do comedouro exibe as leituras no modo MQTT
 ```
+
+Na simulação local, `dashboard/comedouro.html` gera os dados no próprio navegador e atualiza a animação, a visão virtual do prato e o gráfico. Esses dados não são enviados ao broker nem à API.
 
 ---
 
@@ -145,7 +149,7 @@ petcarehub/fiap/coleira01/telemetria
 petcarehub/fiap/comedouro01/telemetria
 ```
 
-Esses tópicos recebem os dados completos de cada dispositivo em formato JSON. O dashboard web atual assina só o da coleira — ver [Resultados Parciais](#-resultados-parciais-sprint-3).
+Esses tópicos recebem os dados completos de cada dispositivo em formato JSON. A página da coleira assina seu tópico; a página do comedouro assina o tópico correspondente quando o modo **Wokwi / dispositivo via MQTT** é selecionado.
 
 ---
 
@@ -226,6 +230,8 @@ O status `ATIVO` só é confirmado quando o movimento intenso permanece por vár
 
 ## 🍽️ Cálculo de Consumo do Comedouro (PetCare Vision)
 
+> Histórico da abordagem anterior. No firmware S3 atual, nível e consumo são `null`; a câmera ainda depende de validação e não mede ingestão. O controle por microinterruptor conta ciclos mecânicos.
+
 O comedouro **não usa mais célula de carga (HX711)** para medir quanto o pet comeu — essa leitura foi substituída por uma **câmera** (ESP32-CAM), abordagem chamada de **PetCare Vision** (visão computacional clássica, sem LLM — ver [🧠 PetCare AI — Sprint 3](#-petcare-ai--sprint-3-disruptive-architectures) pra entender a diferença entre as duas capacidades de IA do produto).
 
 ### Como funciona
@@ -243,7 +249,7 @@ A câmera simulada do Wokwi sempre devolve o mesmo quadro de teste (não muda co
 
 ## 🧪 Modo Demo e Modo Físico
 
-Os dois firmwares (coleira e comedouro) têm o mesmo padrão de dois modos.
+A descrição de `MODO_DEMO` abaixo é histórica para o comedouro. O comedouro S3 atual usa `PETCARE_SIMULATION` em `config.h`; consulte o guia específico. A coleira mantém seus modos.
 
 ### Modo Demo
 
@@ -285,10 +291,14 @@ Disruptive-Architectures/
 │
 ├── dashboard/
 │   ├── index.html
+│   ├── comedouro.html
+│   ├── README.md
 │   ├── css/
 │   │   └── styles.css
 │   └── js/
-│       └── app.js
+│       ├── app.js
+│       ├── comedouro.js
+│       └── simulacao.js
 │
 ├── entrega/
 │   ├── link-github.txt
@@ -299,6 +309,12 @@ Disruptive-Architectures/
 ```
 
 ---
+
+## 🤖 Simulador virtual integrado à API Java
+
+Para gerar histórico sem depender dos dispositivos físicos, use o [simulador da API](simulador-api/README.md). Ele envia leituras sintéticas da coleira, do comedouro e do ambiente pelos endpoints Java; o backend persiste no Oracle e calcula score/alertas.
+
+**ID do pet:** abra `simulador-api/simulator.py` e altere `PET_ID` perto do início, ou configure `PETCARE_PET_ID` no terminal. Use um ID existente e acessível ao tutor do JWT. O simulador aponta para `localhost:8080` por padrão e exige que endereço e token sejam configurados no terminal.
 
 ## ▶️ Como Executar no Wokwi
 
@@ -329,39 +345,25 @@ Clique em **Start Simulation**. No Serial Monitor, devem aparecer mensagens pare
 
 ### Comedouro Inteligente
 
-Abra a pasta `comedouro-inteligente` no Wokwi. Ela deve conter:
+Use o [roteiro atual de teste Wokwi](comedouro-inteligente/LEIA-ME.md).
+O `wokwi.toml` carrega o novo binário S3 em `comedouro-inteligente/build/wokwi/`.
+DHT22 representa apenas o sensor de ambiente no simulador; na placa física o perfil usa DHT11.
+LEDs representam sinais lógicos do TB6612 e um botão representa o microinterruptor.
+A câmera, corrente, torque e quantidade de ração não são validados no Wokwi.
 
-```text
-comedouro-inteligente.ino
-diagram.json
-libraries.txt
-wokwi.toml
-```
+### Comedouro: simulação sem equipamento
 
-O `libraries.txt` precisa conter `DHT sensor library for ESPx` e `PubSubClient`.
+Abra [dashboard/comedouro.html](dashboard/comedouro.html) no navegador. O modo **Simulação no navegador** já vem selecionado e funciona sem internet.
 
-> **Se o `wokwi.toml` reclamar de firmware/elf ausente**: os binários pré-compilados
-> (`esp32.esp32.esp32cam/comedouro-inteligente.ino.{bin,elf}`) precisam ser gerados uma vez
-> via Arduino IDE/`arduino-cli` (placa **AI Thinker ESP32-CAM**) e commitados nessa pasta —
-> ver [Como Executar no ESP32-CAM Físico](#-como-executar-no-esp32-cam-físico-comedouro).
-> Sem isso, abra o `.ino` direto em [wokwi.com](https://wokwi.com) e deixe o compilador online
-> do próprio Wokwi compilar (mais lento, mas não depende de binário commitado).
+1. Escolha uma porção e clique em **Dispensar ração** para ver a comida cair no prato.
+2. Clique em **Pet comer** para acompanhar a refeição na animação, na câmera virtual e no gráfico. O mesmo botão pausa a refeição.
+3. Use **Reabastecer reservatório**, altere a temperatura para testar alertas ou clique em **Reiniciar** para começar de novo.
 
-Clique em **Start Simulation**. No Serial Monitor, devem aparecer mensagens parecidas com:
+O reservatório tem capacidade simulada de 200 g e o prato, de 40 g. A porção é limitada à ração disponível e ao espaço no prato. A câmera virtual é uma ilustração da simulação; não captura vídeo nem reconhece imagens. O histórico é mantido apenas enquanto a página está aberta.
 
-```json
-{
-  "modulo": "comedouro",
-  "status": "normal",
-  "percentualConsumido": 12.5,
-  "wifi": true,
-  "mqtt": true
-}
-```
+Para acompanhar o firmware, selecione **Wokwi / dispositivo via MQTT** e inicie o projeto do comedouro no Wokwi. Esse modo precisa de internet e acompanha a telemetria; os comandos locais `d`, `p` e `r` no Serial Monitor controlam o teste do motor; o dashboard recebe telemetria.
 
----
-
-## 🖥️ Como Abrir o Dashboard
+### Coleira: telemetria MQTT
 
 Abra o arquivo:
 
@@ -376,6 +378,8 @@ petcarehub/fiap/coleira01/telemetria
 ```
 
 Quando o ESP32 publicar os dados, o dashboard será atualizado automaticamente.
+
+Use os links no topo das páginas para alternar entre **Coleira Smart** e **Comedouro Inteligente**. Mais detalhes em [dashboard/README.md](dashboard/README.md).
 
 ---
 
@@ -446,42 +450,12 @@ Depois clique em **Upload**.
 
 ---
 
-## 🔧 Como Executar no ESP32-CAM Físico (Comedouro)
+## 🔧 Como Executar no ESP32-S3 Físico (Comedouro)
 
-### 1. Instalar bibliotecas
-
-Na Arduino IDE, instale `PubSubClient` e `DHT sensor library for ESPx` (Sketch → Include Library → Manage Libraries). O suporte à câmera (`esp_camera.h`) já vem embutido no core ESP32 — não precisa instalar nada à parte.
-
-### 2. Selecionar a placa certa
-
-```text
-Tools → Board → AI Thinker ESP32-CAM
-```
-
-A pinagem da câmera no código (`PWDN_GPIO_NUM`, `XCLK_GPIO_NUM`, etc.) é fixa e específica desse módulo — só funciona com essa placa selecionada.
-
-### 3. Configurar Wi-Fi e desativar o modo demo
-
-Mesmos passos da coleira (seções 2 e 3 acima), no arquivo `comedouro-inteligente.ino`.
-
-### 4. Ligações dos sensores
-
-| Componente | ESP32-CAM |
-|---|---|
-| HC-SR04 TRIG | GPIO 13 |
-| HC-SR04 ECHO | GPIO 12 |
-| DHT22 SDA | GPIO 14 |
-| Servo PWM | GPIO 15 |
-
-A câmera OV2640 já vem soldada ao módulo AI-Thinker — não tem fiação extra pra fazer.
-
-### 5. Gravar o firmware
-
-O ESP32-CAM não tem porta USB própria — é preciso um adaptador FTDI (USB-Serial), ligando GPIO0 ao GND **antes** de ligar a placa (modo de gravação), gravar, depois desligar essa ligação e resetar pra rodar o programa normalmente. Na Arduino IDE, **Upload** como de costume depois de entrar em modo de gravação.
-
-### 6. Gerar os binários pré-compilados para o Wokwi
-
-Depois de compilar com sucesso pela Arduino IDE (ou `arduino-cli compile --fqbn esp32:esp32:esp32cam`), copie a pasta de build gerada (`esp32.esp32.esp32cam/`, com os arquivos `.bin`/`.elf`) para dentro de `comedouro-inteligente/`, no mesmo padrão já usado pela coleira. Isso é necessário porque o `build/` local não é versionado (`.gitignore`), e o `wokwi.toml` do comedouro depende desses arquivos existirem no repositório para rodar sem precisar recompilar.
+O firmware atual possui perfis Wokwi e físico, com a mesma lógica do motor.
+Consulte [comedouro-inteligente/LEIA-ME.md](comedouro-inteligente/LEIA-ME.md) para compilar, testar e identificar as ligações propostas.
+A câmera OEM e a alimentação do motor ainda precisam de confirmação na bancada.
+Os antigos binários `esp32.esp32.esp32cam/` são legados AI Thinker e não devem ser gravados no ESP32-S3.
 
 ---
 
@@ -547,7 +521,7 @@ Em três camadas, todas na etapa determinística (antes da LLM entrar em cena): 
 São duas capacidades de IA distintas no produto:
 
 - **PetCare AI** — a camada de LLM + RAG acima: interpreta contexto e explica em linguagem humana.
-- **PetCare Vision** — visão computacional clássica (sem LLM), usada só no comedouro: compara o brilho do prato antes/depois da refeição pra estimar o percentual de ração consumida. Diferente da PetCare AI, essa parte **já está implementada** neste repositório — ver [Cálculo de Consumo do Comedouro](#-cálculo-de-consumo-do-comedouro-petcare-vision) acima.
+- **PetCare Vision** — visão computacional clássica (sem LLM), usada só no comedouro: compara o brilho do prato antes/depois da refeição pra estimar o percentual de ração consumida. Diferente da PetCare AI, essa abordagem estava no firmware anterior; o firmware S3 atual não calcula consumo — ver [Cálculo de Consumo do Comedouro](#-cálculo-de-consumo-do-comedouro-petcare-vision) acima.
 
 ---
 
