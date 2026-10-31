@@ -3,27 +3,282 @@
   "author": "PetCare Hub",
   "editor": "wokwi",
   "parts": [
-    { "type": "board-esp32-cam-ai-thinker", "id": "esp", "top": 0, "left": 0, "attrs": {} },
-    { "type": "wokwi-dht22", "id": "dht1", "top": -140, "left": 260, "attrs": { "temperature": "27.2", "humidity": "55" } },
-    { "type": "wokwi-hc-sr04", "id": "ultrasonic1", "top": 40, "left": 260, "attrs": { "distance": "14" } },
-    { "type": "wokwi-servo", "id": "servo1", "top": 360, "left": 260, "attrs": {} }
+    {
+      "type": "board-esp32-s3-devkitc-1",
+      "id": "esp",
+      "top": 0,
+      "left": 0,
+      "attrs": {
+        "flashSize": "16",
+        "psramSize": "8",
+        "psramType": "octal"
+      }
+    },
+    {
+      "type": "wokwi-dht22",
+      "id": "dht",
+      "top": -100,
+      "left": 300,
+      "attrs": {
+        "temperature": "26",
+        "humidity": "55"
+      }
+    },
+    {
+      "type": "wokwi-pushbutton",
+      "id": "dispensar",
+      "top": 180,
+      "left": 300,
+      "attrs": {
+        "color": "green",
+        "label": "PEDIR 1 PORCAO"
+      }
+    },
+    {
+      "type": "wokwi-pushbutton",
+      "id": "fim",
+      "top": 290,
+      "left": 300,
+      "attrs": {
+        "color": "blue",
+        "label": "MICROINTERRUPTOR"
+      }
+    },
+    {
+      "type": "wokwi-pushbutton",
+      "id": "rearmar",
+      "top": 400,
+      "left": 300,
+      "attrs": {
+        "color": "red",
+        "label": "REARMAR FALHA"
+      }
+    },
+    {
+      "type": "wokwi-led",
+      "id": "AIN1",
+      "top": 30,
+      "left": 550,
+      "attrs": {
+        "color": "green",
+        "label": "TB6612 AIN1"
+      }
+    },
+    {
+      "type": "wokwi-resistor",
+      "id": "r0",
+      "top": 40,
+      "left": 440,
+      "attrs": {
+        "value": "330"
+      }
+    },
+    {
+      "type": "wokwi-led",
+      "id": "AIN2",
+      "top": 115,
+      "left": 550,
+      "attrs": {
+        "color": "blue",
+        "label": "TB6612 AIN2"
+      }
+    },
+    {
+      "type": "wokwi-resistor",
+      "id": "r1",
+      "top": 125,
+      "left": 440,
+      "attrs": {
+        "value": "330"
+      }
+    },
+    {
+      "type": "wokwi-led",
+      "id": "PWMA",
+      "top": 200,
+      "left": 550,
+      "attrs": {
+        "color": "green",
+        "label": "TB6612 PWMA"
+      }
+    },
+    {
+      "type": "wokwi-resistor",
+      "id": "r2",
+      "top": 210,
+      "left": 440,
+      "attrs": {
+        "value": "330"
+      }
+    },
+    {
+      "type": "wokwi-led",
+      "id": "STBY",
+      "top": 285,
+      "left": 550,
+      "attrs": {
+        "color": "orange",
+        "label": "TB6612 STBY"
+      }
+    },
+    {
+      "type": "wokwi-resistor",
+      "id": "r3",
+      "top": 295,
+      "left": 440,
+      "attrs": {
+        "value": "330"
+      }
+    },
+    {
+      "type": "wokwi-text",
+      "id": "nota",
+      "top": -210,
+      "left": -80,
+      "attrs": {
+        "text": "TESTE LOGICO ESP32-S3 / TB6612\nDHT22 substitui DHT11 SOMENTE no Wokwi.\nLEDs mostram sinais; nao simulam potencia/motor.\nOV5640 sera testada na placa fisica."
+      }
+    }
   ],
   "connections": [
-    [ "esp:U0T", "$serialMonitor:RX", "", [] ],
-    [ "esp:U0R", "$serialMonitor:TX", "", [] ],
-
-    [ "esp:3V3", "dht1:VCC", "red", [] ],
-    [ "esp:GND", "dht1:GND", "black", [] ],
-    [ "esp:IO14", "dht1:SDA", "green", [] ],
-
-    [ "esp:5V", "ultrasonic1:VCC", "red", [] ],
-    [ "esp:GND", "ultrasonic1:GND", "black", [] ],
-    [ "esp:IO13", "ultrasonic1:TRIG", "green", [] ],
-    [ "esp:IO12", "ultrasonic1:ECHO", "blue", [] ],
-
-    [ "esp:5V", "servo1:V+", "red", [] ],
-    [ "esp:GND", "servo1:GND", "black", [] ],
-    [ "esp:IO15", "servo1:PWM", "green", [] ]
+    [
+      "esp:TX",
+      "$serialMonitor:RX",
+      "",
+      []
+    ],
+    [
+      "esp:RX",
+      "$serialMonitor:TX",
+      "",
+      []
+    ],
+    [
+      "esp:3V3.1",
+      "dht:VCC",
+      "red",
+      []
+    ],
+    [
+      "esp:GND.1",
+      "dht:GND",
+      "black",
+      []
+    ],
+    [
+      "esp:42",
+      "dht:SDA",
+      "green",
+      []
+    ],
+    [
+      "esp:21",
+      "dispensar:1.l",
+      "green",
+      []
+    ],
+    [
+      "dispensar:2.l",
+      "esp:GND.1",
+      "black",
+      []
+    ],
+    [
+      "esp:41",
+      "fim:1.l",
+      "green",
+      []
+    ],
+    [
+      "fim:2.l",
+      "esp:GND.1",
+      "black",
+      []
+    ],
+    [
+      "esp:47",
+      "rearmar:1.l",
+      "green",
+      []
+    ],
+    [
+      "rearmar:2.l",
+      "esp:GND.1",
+      "black",
+      []
+    ],
+    [
+      "esp:1",
+      "r0:1",
+      "green",
+      []
+    ],
+    [
+      "r0:2",
+      "AIN1:A",
+      "green",
+      []
+    ],
+    [
+      "AIN1:C",
+      "esp:GND.1",
+      "black",
+      []
+    ],
+    [
+      "esp:2",
+      "r1:1",
+      "green",
+      []
+    ],
+    [
+      "r1:2",
+      "AIN2:A",
+      "green",
+      []
+    ],
+    [
+      "AIN2:C",
+      "esp:GND.1",
+      "black",
+      []
+    ],
+    [
+      "esp:38",
+      "r2:1",
+      "green",
+      []
+    ],
+    [
+      "r2:2",
+      "PWMA:A",
+      "green",
+      []
+    ],
+    [
+      "PWMA:C",
+      "esp:GND.1",
+      "black",
+      []
+    ],
+    [
+      "esp:40",
+      "r3:1",
+      "green",
+      []
+    ],
+    [
+      "r3:2",
+      "STBY:A",
+      "green",
+      []
+    ],
+    [
+      "STBY:C",
+      "esp:GND.1",
+      "black",
+      []
+    ]
   ],
   "dependencies": {}
 }
