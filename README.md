@@ -1,5 +1,3 @@
-> **Comedouro atualizado em 18/09/2026:** siga [LEIA-ME do ESP32-S3](comedouro-inteligente/LEIA-ME.md). As tabelas e exemplos antigos de AI Thinker, servo, HC-SR04 e consumo por brilho abaixo são históricos e não descrevem o circuito atual.
-
 # 🐾 PetCare Hub — IoT (Coleira Smart + Comedouro Inteligente)
 
 Protótipo IoT desenvolvido para o **Challenge FIAP 2026 — CLYVO VET**, disciplina **Disruptive Architectures**.
@@ -42,12 +40,12 @@ A **Coleira Smart** propõe uma forma de acompanhamento contínuo, permitindo ge
 | Tecnologia | Uso no projeto |
 |---|---|
 | ESP32 | Microcontrolador da coleira |
-| ESP32-CAM (AI-Thinker) | Microcontrolador + câmera do comedouro |
 | MPU6050 | Sensor de aceleração/movimento (coleira) |
-| Câmera OV2640 | Estimativa de ração consumida — PetCare Vision (comedouro) |
-| HC-SR04 | Nível do reservatório de ração (comedouro) |
-| DHT22 | Temperatura ambiente (comedouro) |
-| Servo motor | Liberação de ração (comedouro) |
+| ESP32-S3 CAM OEM N16R8 | Microcontrolador do comedouro (16 MB flash / 8 MB PSRAM) |
+| Câmera OV5640 | Prevista no comedouro; pinagem da câmera OEM ainda por confirmar na bancada |
+| DHT11 | Temperatura e umidade (comedouro) |
+| TB6612 + motor DC com redutor | Acionamento da porção (comedouro) |
+| Microinterruptor de fim de curso | Confirma o ciclo mecânico de uma porção (comedouro) |
 | Wokwi | Simulação dos dois circuitos |
 | C++ / Arduino | Programação dos dois firmwares |
 | MQTT | Comunicação entre os ESP32 e o dashboard |
@@ -61,9 +59,9 @@ A **Coleira Smart** propõe uma forma de acompanhamento contínuo, permitindo ge
 ## 🧩 Arquitetura da Solução
 
 ```text
-MPU6050                          HC-SR04 + DHT22 + Câmera OV2640
+MPU6050                          DHT11 + TB6612/motor + microinterruptor
    ↓                                        ↓
-ESP32 (coleira)                  ESP32-CAM (comedouro)
+ESP32 (coleira)                  ESP32-S3 CAM N16R8 (comedouro)
    ↓ Wi-Fi                                  ↓ Wi-Fi
         MQTT Broker HiveMQ (tópicos separados)
                     ↓
@@ -89,13 +87,14 @@ Dashboard exibe os dados em tempo real
 Fluxo completo (comedouro):
 
 ```text
-HC-SR04 lê a distância até a ração → nível do reservatório
-Câmera captura o brilho médio do prato → percentual consumido
-DHT22 lê a temperatura ambiente
+Pedido de porção chega (botão de teste ou HTTP)
         ↓
-ESP32-CAM calcula status (normal / racao_baixa / temperatura_elevada)
+Motor gira; o microinterruptor confirma o ciclo → porção contada
+DHT lê temperatura e umidade do ambiente
         ↓
-ESP32-CAM publica os dados via MQTT
+ESP32-S3 calcula status (normal / falha_motor / falha_sensor / temperatura_elevada)
+        ↓
+ESP32-S3 publica os dados via MQTT
         ↓
 Dashboard do comedouro exibe as leituras no modo MQTT
 ```
@@ -185,21 +184,39 @@ Esses tópicos recebem os dados completos de cada dispositivo em formato JSON. A
 ```json
 {
   "modulo": "comedouro",
-  "nivelRacao": 78,
-  "percentualConsumido": 32.5,
-  "pesoConsumidoG": 13.0,
+  "nivelRacao": null,
+  "percentualConsumido": null,
+  "pesoConsumidoG": null,
   "temperaturaAmbiente": 27.2,
+  "umidadeAmbiente": 58.0,
+  "porcoesDispensadas": 3,
+  "estadoMotor": "parado",
+  "falhaMotor": "nenhuma",
   "status": "normal",
   "alerta": false,
-  "cameraDisponivel": true,
+  "cameraDisponivel": false,
   "wifi": true,
   "mqtt": true,
   "modoDemo": true,
+  "origem": "wokwi",
+  "consumoDisponivel": false,
+  "nivelDisponivel": false,
+  "sensorTemperatura": "DHT22_substituto_virtual",
   "uptimeMs": 12000
 }
 ```
 
-`percentualConsumido` e `pesoConsumidoG` vêm da câmera (PetCare Vision — ver [🧠 PetCare AI](#-petcare-ai--a-camada-de-ia-do-produto)): o ESP32-CAM compara o brilho médio do prato agora contra uma referência de "prato cheio" e converte esse percentual em gramas usando uma constante de calibração do pote (pote cheio = 40g = 100%).
+Os três campos em `null` são deliberados: o firmware S3 **não mede nível nem ingestão**, e
+`consumoDisponivel` e `nivelDisponivel` dizem isso a quem consome, em vez de deixar adivinhar.
+Declarar a ausência é melhor do que publicar um número sem como sustentar — a geração anterior
+estimava consumo pelo brilho da imagem, e o motivo de ter saído está no
+[histórico do AI Thinker](comedouro-inteligente/HISTORICO-AI-THINKER.md).
+
+O que o comedouro informa de fato hoje: temperatura e umidade pelo DHT, quantas porções foram
+dispensadas (`porcoesDispensadas`), em que ponto do ciclo o motor está (`estadoMotor`) e se
+alguma porção falhou (`falhaMotor`). `origem` separa o que veio do Wokwi do que veio de
+hardware, e `sensorTemperatura` registra que no simulador o DHT11 é substituído por um DHT22
+virtual.
 
 ---
 
@@ -228,22 +245,33 @@ O status `ATIVO` só é confirmado quando o movimento intenso permanece por vár
 
 ---
 
-## 🍽️ Cálculo de Consumo do Comedouro (PetCare Vision)
+## 🍽️ A porção do comedouro
 
-> Histórico da abordagem anterior. No firmware S3 atual, nível e consumo são `null`; a câmera ainda depende de validação e não mede ingestão. O controle por microinterruptor conta ciclos mecânicos.
+Uma porção é **um ciclo mecânico completo**, não um tempo de motor ligado nem um ângulo de
+servo. O microinterruptor de fim de curso confirma o ciclo: o `controle_porcao.h` solta a
+chave, espera ela fechar de novo e então freia. Só aí a porção é contada.
 
-O comedouro **não usa mais célula de carga (HX711)** para medir quanto o pet comeu — essa leitura foi substituída por uma **câmera** (ESP32-CAM), abordagem chamada de **PetCare Vision** (visão computacional clássica, sem LLM — ver [🧠 PetCare AI](#-petcare-ai--a-camada-de-ia-do-produto) pra entender a diferença entre as duas capacidades de IA do produto).
+A máquina de estados é pequena de propósito, e é o que o teste no Wokwi exercita:
 
-### Como funciona
+| Estado | O que está acontecendo |
+|---|---|
+| `parado` | Em repouso, pronto para receber um pedido |
+| `liberando_chave` | Motor girando até o microinterruptor abrir |
+| `dispensando` | Girando até o microinterruptor fechar de novo — o ciclo da porção |
+| `freando` | Freio aplicado por `TEMPO_FREIO_MS` antes de voltar a `parado` |
+| `falha_motor` | O ciclo não completou, e o comedouro precisa de rearme |
 
-1. Ao ligar (ou depois de reabastecer), o ESP32-CAM tira uma foto do prato e guarda o **brilho médio** dela como referência de "prato cheio".
-2. Periodicamente, tira uma nova foto e compara o brilho atual contra essa referência.
-3. Quanto maior a diferença de brilho, maior o `percentualConsumido`.
-4. O peso em gramas (`pesoConsumidoG`) é calculado a partir desse percentual e de uma constante de calibração do pote (pote cheio = 40g = 100%) — não vem mais de sensor nenhum.
+Duas falhas são tratadas: `tempo_esgotado`, quando o ciclo passa de `TEMPO_MAXIMO_PORCAO_MS` —
+o caso do entupimento — e `cancelado`. Enquanto o estado for `falha_motor`, novas porções são
+recusadas até alguém rearmar. A alternativa, tentar de novo sozinho, transformaria um
+entupimento em motor queimado.
 
-### Limitação conhecida no Wokwi
+O pedido de porção é uma **caixa de correio de um item**: pedir duas vezes seguidas não
+enfileira duas porções. Isso evita que uma falha de rede vire pet alimentado em dobro.
 
-A câmera simulada do Wokwi sempre devolve o mesmo quadro de teste (não muda com o "conteúdo do prato"), então o percentual calculado a partir da imagem real fica travado perto de 0%. Por isso o firmware tem um `MODO_DEMO` (igual à coleira) que sobrepõe uma curva de consumo simulada só para efeito de demonstração — em hardware físico, com `MODO_DEMO = false`, o valor vem inteiramente do brilho capturado pela câmera de verdade.
+> **O comedouro não mede quanto o pet comeu.** A geração anterior estimava isso pelo brilho da
+> imagem do prato, abordagem chamada *PetCare Vision*. Aquela documentação, e o motivo de ter
+> saído, estão no [histórico do AI Thinker](comedouro-inteligente/HISTORICO-AI-THINKER.md).
 
 ---
 
@@ -285,6 +313,12 @@ Disruptive-Architectures/
 │
 ├── comedouro-inteligente/
 │   ├── comedouro-inteligente.ino
+│   ├── config.h                  ← pinagem, Wi-Fi e tempos do ciclo
+│   ├── controle_porcao.h         ← maquina de estados da porcao
+│   ├── tests/                    ← testes do controle_porcao, rodam sem hardware
+│   ├── build/                    ← binarios dos perfis wokwi e fisico
+│   ├── LEIA-ME.md                ← guia atual do ESP32-S3
+│   ├── HISTORICO-AI-THINKER.md   ← geracao anterior, so para referencia
 │   ├── diagram.json
 │   ├── libraries.txt
 │   └── wokwi.toml
@@ -300,11 +334,15 @@ Disruptive-Architectures/
 │       ├── comedouro.js
 │       └── simulacao.js
 │
+├── simulador-api/
+│   ├── simulator.py              ← gera historico de leituras pela API Java
+│   └── README.md
+│
 ├── entrega/
 │   ├── link-github.txt
 │   └── link-video-youtube.txt
 │
-├── PETCARE_AI_ 1.pdf            ← especificação da PetCare AI (Sprint 3) — ver seção abaixo
+├── PETCARE_AI_ 1.pdf            ← desenho da PetCare AI; a implementação está na seção abaixo
 └── README.md
 ```
 
@@ -495,8 +533,10 @@ https://youtu.be/ss0ONo7hGNA
 - O dashboard precisa usar o mesmo tópico MQTT configurado no ESP32.
 - Em redes Wi-Fi públicas ou corporativas, a porta MQTT pode ser bloqueada.
 - Para medição de velocidade real em km/h seria necessário adicionar GPS ao protótipo.
-- O percentual de ração consumida do comedouro (PetCare Vision) usa brilho médio da imagem, não reconhecimento de objeto — é uma aproximação, sensível a mudança de iluminação no ambiente real.
-- No Wokwi, a câmera do comedouro sempre devolve o mesmo quadro de teste — o percentual mostrado na simulação depende do `MODO_DEMO`, não da imagem em si.
+- O comedouro não mede nível de ração nem quanto o pet comeu: publica `null` nesses campos e sinaliza a ausência em `nivelDisponivel` e `consumoDisponivel`.
+- A porção é contada por ciclo mecânico, não por peso — o microinterruptor confirma que o ciclo completou, não quantos gramas caíram.
+- A câmera OV5640 não é emulada no Wokwi (`cameraDisponivel=false`), e a pinagem da câmera OEM ainda depende de confirmação na bancada.
+- O teste no Wokwi não valida corrente, torque, entupimento real nem peso por porção. Ver os limites em [LEIA-ME.md](comedouro-inteligente/LEIA-ME.md).
 
 ---
 
@@ -552,7 +592,7 @@ Em três camadas, todas na etapa determinística (antes da LLM entrar em cena): 
 São duas capacidades de IA distintas no produto:
 
 - **PetCare AI** — a camada de LLM + RAG acima: interpreta contexto e explica em linguagem humana.
-- **PetCare Vision** — visão computacional clássica (sem LLM), usada só no comedouro: compara o brilho do prato antes/depois da refeição pra estimar o percentual de ração consumida. Diferente da PetCare AI, essa abordagem estava no firmware anterior; o firmware S3 atual não calcula consumo — ver [Cálculo de Consumo do Comedouro](#-cálculo-de-consumo-do-comedouro-petcare-vision) acima.
+- **PetCare Vision** — visão computacional clássica (sem LLM) que estimava o consumo pelo brilho da imagem do prato. **Não está no firmware atual**: ficou na geração ESP32-CAM e saiu na migração para o S3, pelos motivos registrados no [histórico do AI Thinker](comedouro-inteligente/HISTORICO-AI-THINKER.md). Aparece aqui porque está no vídeo da Sprint 3 e costuma ser confundida com a PetCare AI, que é outra coisa e continua ativa.
 
 ---
 
