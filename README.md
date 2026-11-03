@@ -9,7 +9,7 @@ Este repositório reúne os dois dispositivos IoT do PetCare Hub:
 - **Coleira Smart** — monitora a movimentação do pet em tempo real usando um **ESP32** com sensor **MPU6050**, classificando o comportamento do animal como `SEDENTARIO`, `MODERADO` ou `ATIVO`.
 - **Comedouro Inteligente** — em migração para ESP32-S3 N16R8 + OV5640, DHT11, motor DC com TB6612 e microinterruptor. O teste Wokwi valida a lógica de uma porção e as falhas com componentes substitutos. [Guia atual e limites da simulação](comedouro-inteligente/LEIA-ME.md).
 
-Os dois têm páginas no **dashboard web** para acompanhar dados via **MQTT**. O comedouro também tem uma **simulação interativa no navegador**, com dispenser, pet comendo e câmera virtual, que funciona sem equipamento e sem internet. Ver a seção [🧠 PetCare AI — Sprint 3](#-petcare-ai--sprint-3-disruptive-architectures) pra como os dados dos dispositivos (mais os do resto do PetCare Hub) alimentam a camada de IA definida para esta sprint.
+Os dois têm páginas no **dashboard web** para acompanhar dados via **MQTT**. O comedouro também tem uma **simulação interativa no navegador**, com dispenser, pet comendo e câmera virtual, que funciona sem equipamento e sem internet. Ver a seção [🧠 PetCare AI](#-petcare-ai--a-camada-de-ia-do-produto) pra como os dados dos dispositivos (mais os do resto do PetCare Hub) alimentam a camada de IA do produto, implementada na Sprint 4.
 
 ---
 
@@ -199,7 +199,7 @@ Esses tópicos recebem os dados completos de cada dispositivo em formato JSON. A
 }
 ```
 
-`percentualConsumido` e `pesoConsumidoG` vêm da câmera (PetCare Vision — ver [🧠 PetCare AI — Sprint 3](#-petcare-ai--sprint-3-disruptive-architectures)): o ESP32-CAM compara o brilho médio do prato agora contra uma referência de "prato cheio" e converte esse percentual em gramas usando uma constante de calibração do pote (pote cheio = 40g = 100%).
+`percentualConsumido` e `pesoConsumidoG` vêm da câmera (PetCare Vision — ver [🧠 PetCare AI](#-petcare-ai--a-camada-de-ia-do-produto)): o ESP32-CAM compara o brilho médio do prato agora contra uma referência de "prato cheio" e converte esse percentual em gramas usando uma constante de calibração do pote (pote cheio = 40g = 100%).
 
 ---
 
@@ -232,7 +232,7 @@ O status `ATIVO` só é confirmado quando o movimento intenso permanece por vár
 
 > Histórico da abordagem anterior. No firmware S3 atual, nível e consumo são `null`; a câmera ainda depende de validação e não mede ingestão. O controle por microinterruptor conta ciclos mecânicos.
 
-O comedouro **não usa mais célula de carga (HX711)** para medir quanto o pet comeu — essa leitura foi substituída por uma **câmera** (ESP32-CAM), abordagem chamada de **PetCare Vision** (visão computacional clássica, sem LLM — ver [🧠 PetCare AI — Sprint 3](#-petcare-ai--sprint-3-disruptive-architectures) pra entender a diferença entre as duas capacidades de IA do produto).
+O comedouro **não usa mais célula de carga (HX711)** para medir quanto o pet comeu — essa leitura foi substituída por uma **câmera** (ESP32-CAM), abordagem chamada de **PetCare Vision** (visão computacional clássica, sem LLM — ver [🧠 PetCare AI](#-petcare-ai--a-camada-de-ia-do-produto) pra entender a diferença entre as duas capacidades de IA do produto).
 
 ### Como funciona
 
@@ -461,17 +461,25 @@ Os antigos binários `esp32.esp32.esp32cam/` são legados AI Thinker e não deve
 
 ## 📺 Demonstração em Vídeo
 
-O vídeo de apresentação deve demonstrar:
+### Sprint 4 — pitch de ~5 minutos
 
-1. O problema que o projeto resolve;
-2. A simulação da coleira no Wokwi;
-3. O envio dos dados via MQTT;
-4. O dashboard recebendo os dados em tempo real;
-5. A mudança entre `SEDENTARIO`, `MODERADO` e `ATIVO`;
-6. O alerta de inatividade;
-7. A explicação do modo demo e do modo físico.
+A nota da Sprint 4 concentra-se na camada de IA, então o roteiro muda de peso:
 
-Link do vídeo:
+1. O problema que o projeto resolve, em uma frase;
+2. A simulação da coleira no Wokwi e o envio via MQTT;
+3. O dashboard recebendo os dados em tempo real, com a troca entre `SEDENTARIO`, `MODERADO` e `ATIVO`;
+4. O [simulador da API](simulador-api/README.md) gerando histórico — é o dado que a IA lê;
+5. **A PetCare AI respondendo sobre um pet real**, pela aba do app ou pelo endpoint, mostrando que a resposta cita o contexto daquele pet e não uma generalidade;
+6. **A base de conhecimento**: `GET /admin/ia/conhecimento/status` e uma busca, para mostrar que o RAG recupera trecho de verdade;
+7. Benefícios para o tutor e para a clínica.
+
+Link do vídeo (Sprint 4):
+
+```text
+(a gravar)
+```
+
+### Sprint 3 — demonstração do IoT
 
 ```text
 https://youtu.be/ss0ONo7hGNA
@@ -492,9 +500,15 @@ https://youtu.be/ss0ONo7hGNA
 
 ---
 
-## 🧠 PetCare AI — Sprint 3 (Disruptive Architectures)
+## 🧠 PetCare AI — a camada de IA do produto
 
-Especificação completa: [`PETCARE_AI_ 1.pdf`](PETCARE_AI_%201.pdf). Esta seção é um resumo — **é um documento de design, não uma implementação**; nenhum código de LLM/RAG está neste (ou em nenhum outro) repositório do PetCare Hub ainda.
+Desenhada na Sprint 3 e **implementada na Sprint 4**. O desenho original está em
+[`PETCARE_AI_ 1.pdf`](PETCARE_AI_%201.pdf); esta seção descreve o que foi construído e onde.
+
+O código vive no [repositório Java](https://github.com/PetCare-HUB/java), porque é lá que o
+contexto do pet já está montado — leituras dos dispositivos, Score de Saúde, alertas, consultas
+e eventos preventivos. Duplicar isso num serviço separado só para hospedar a IA criaria duas
+versões da mesma verdade. Os dispositivos deste repositório são a origem dos dados que ela lê.
 
 ### O problema
 
@@ -507,6 +521,23 @@ O PetCare Hub já coleta continuamente dados reais da rotina do pet (movimento p
 3. **RAG (Retrieval-Augmented Generation)**: o Java consulta uma base de conhecimento veterinário, filtrando por espécie/idade/porte do pet.
 4. **LLM**: recebe os dados já calculados (incluindo a urgência) e as diretrizes recuperadas, e tem uma responsabilidade deliberadamente restrita — explicar em linguagem humana por que aquele padrão é relevante, e escolher uma ação sugerida dentro de uma lista fechada. A LLM nunca decide nem pode contradizer a urgência que o sistema já calculou.
 5. **Validação**: se algum campo vier fora do formato esperado, o Java corrige ou usa um valor seguro padrão antes de repassar ao Mobile.
+
+### Onde está, e como conferir
+
+| Peça | Onde |
+|---|---|
+| Endpoints do assistente | `POST /pets/{petId}/ia/analise`, `POST /pets/{petId}/ia/perguntar`, `POST /pets/{petId}/ia/alertas/{alertaId}/explicar`, `GET /pets/{petId}/ia/analises` |
+| Administração da base | `POST /admin/ia/reindexar`, `GET /admin/ia/conhecimento/status`, `GET /admin/ia/conhecimento` |
+| Chat e embeddings | Spring AI 1.1.8 + Google Gemini — `gemini-2.5-flash` para chat, `gemini-embedding-001` (3072 dimensões) para os vetores |
+| Base vetorial | `ConhecimentoVectorStore`, implementação própria de `VectorStore` |
+| Persistência | Tabelas `DOCUMENTO_CONHECIMENTO` e `ANALISE_IA`, criadas pela migração Flyway `V14` |
+| No app | A aba **PetCare AI** do [app mobile](https://github.com/PetCare-HUB/Mobile) consome `POST /pets/{petId}/ia/perguntar` |
+
+**Por que uma `VectorStore` própria:** o Oracle 19c não tem tipo `VECTOR`, então o
+`spring-ai-starter-vector-store-oracle` não serve. O embedding de cada trecho é gravado como
+JSON num CLOB e a similaridade por cosseno é calculada em Java. Cada trecho guarda também o
+nome do modelo e o número de dimensões que o geraram — se o modelo de embedding mudar, os
+vetores antigos ficam incomparáveis, e é por isso que existe o `POST /admin/ia/reindexar`.
 
 ### Dados utilizados
 
