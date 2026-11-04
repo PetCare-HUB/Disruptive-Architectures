@@ -535,7 +535,7 @@ A nota da Sprint 4 concentra-se na camada de IA, então o roteiro muda de peso:
 Link do vídeo (Sprint 4):
 
 ```text
-(a gravar)
+https://youtu.be/4CAk0jqLUBs
 ```
 
 ### Sprint 3 — demonstração do IoT
