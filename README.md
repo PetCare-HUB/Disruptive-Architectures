@@ -9,6 +9,17 @@ Este repositório reúne os dois dispositivos IoT do PetCare Hub:
 
 Os dois têm páginas no **dashboard web** para acompanhar dados via **MQTT**. O comedouro também tem uma **simulação interativa no navegador**, com dispenser, pet comendo e câmera virtual, que funciona sem equipamento e sem internet. Ver a seção [🧠 PetCare AI](#-petcare-ai--a-camada-de-ia-do-produto) pra como os dados dos dispositivos (mais os do resto do PetCare Hub) alimentam a camada de IA do produto, implementada na Sprint 4.
 
+> **A camada de IA (PetCare AI) foi implementada em Java**, dentro da API do PetCare Hub (Spring
+> Boot + Spring AI + Google Gemini, com RAG):
+> **[github.com/PetCare-HUB/java](https://github.com/PetCare-HUB/java)**. Este repositório guarda
+> os dispositivos, o dashboard e o simulador que gera o histórico que a IA lê.
+
+| Repositório | O que tem |
+|---|---|
+| **Este** (Disruptive-Architectures) | Firmware da coleira e do comedouro, dashboard MQTT, simulador de leituras |
+| [java](https://github.com/PetCare-HUB/java) | API Java: persistência no Oracle, Score de Saúde, alertas e **a PetCare AI** |
+| [Mobile](https://github.com/PetCare-HUB/Mobile) | App do tutor, com a aba **PetCare AI** |
+
 ---
 
 ## 🎯 Objetivo do Projeto
@@ -53,6 +64,9 @@ A **Coleira Smart** propõe uma forma de acompanhamento contínuo, permitindo ge
 | HTML | Estrutura do dashboard |
 | CSS | Estilização do dashboard |
 | JavaScript | Recebimento MQTT e atualização da interface |
+| Python | Simulador que envia leituras à API Java (`simulador-api/`) |
+| Java + Spring Boot | API que persiste as leituras no Oracle ([repositório Java](https://github.com/PetCare-HUB/java)) |
+| Spring AI + Google Gemini | PetCare AI: `gemini-2.5-flash` para as respostas e `gemini-embedding-001` para o RAG ([repositório Java](https://github.com/PetCare-HUB/java)) |
 
 ---
 
@@ -65,8 +79,15 @@ ESP32 (coleira)                  ESP32-S3 CAM N16R8 (comedouro)
    ↓ Wi-Fi                                  ↓ Wi-Fi
         MQTT Broker HiveMQ (tópicos separados)
                     ↓
-   Dashboard Web (páginas da coleira e do comedouro) · API Java (persiste os dois)
+   Dashboard Web (páginas da coleira e do comedouro)
+
+Simulador (simulador-api/) ── HTTP ──> API Java ──> Oracle ──> PetCare AI ──> App mobile
 ```
+
+Hoje o MQTT termina no dashboard: a API Java não assina o broker. O histórico que chega ao Oracle
+— e que a PetCare AI lê — entra pelos endpoints HTTP `POST /leituras/coleira`, `/comedouro` e
+`/ambiente`, alimentados pelo [simulador](simulador-api/README.md) com o mesmo formato de dado
+que os dispositivos publicam.
 
 Fluxo completo (coleira):
 
@@ -228,8 +249,8 @@ Em vez disso, o projeto calcula a **velocidade de movimento**, baseada na varia�
 
 > Os três valores (`SEDENTARIO`, `MODERADO`, `ATIVO`) não são uma escolha livre — são exatamente
 > os aceitos pelo `CHECK` de `LEITURA_COLEIRA.status_atividade` no banco Oracle. O ESP32 já
-> publica essas strings prontas via MQTT, sem precisar de nenhuma tradução no Java antes de
-> persistir. `SEDENTARIO` também é o valor que já dispara automaticamente um alerta
+> publica essas strings prontas via MQTT, no mesmo formato que o `POST /leituras/coleira` da API
+> Java grava sem tradução. `SEDENTARIO` também é o valor que já dispara automaticamente um alerta
 > `ATIVIDADE_BAIXA` do lado do banco (`PRC_INS_LEITURA_COLEIRA`).
 
 ### Regras utilizadas
@@ -556,7 +577,7 @@ O PetCare Hub já coleta continuamente dados reais da rotina do pet (movimento p
 
 ### Arquitetura: LLM + RAG
 
-1. **IoT → Java → Oracle** (este repositório): coleira e comedouro enviam leituras via MQTT; o Java persiste.
+1. **IoT → Java → Oracle** (este repositório): coleira e comedouro publicam via MQTT para o dashboard; o histórico chega à API Java pelos endpoints HTTP de leitura, alimentados pelo simulador, e o Java persiste no Oracle.
 2. **Cálculo determinístico** (sem IA): o Java calcula variação percentual dos indicadores e o nível de urgência, a partir das faixas do Score de Saúde já existentes (80-100 baixa, 50-79 média, 0-49 alta).
 3. **RAG (Retrieval-Augmented Generation)**: o Java consulta uma base de conhecimento veterinário, filtrando por espécie/idade/porte do pet.
 4. **LLM**: recebe os dados já calculados (incluindo a urgência) e as diretrizes recuperadas, e tem uma responsabilidade deliberadamente restrita — explicar em linguagem humana por que aquele padrão é relevante, e escolher uma ação sugerida dentro de uma lista fechada. A LLM nunca decide nem pode contradizer a urgência que o sistema já calculou.
