@@ -48,6 +48,14 @@ python .\simulador-api\simulator.py --month-to-date --samples-per-day 8 --interv
 
 Esse modo consulta os históricos existentes do pet na API e cria leituras em intervalos de aproximadamente 3 horas apenas quando não encontra uma amostra próxima (margem de 1h30) em cada tipo de sensor. Se uma execução parar, rode o mesmo comando novamente: ele consulta os dados outra vez e continua preenchendo os horários faltantes.
 
+Quando o buraco começa no mês anterior, use `--since` com a data inicial. Ele faz o mesmo preenchimento, só que a partir do dia informado:
+
+```powershell
+python .\simulador-api\simulator.py --since 2026-10-29 --samples-per-day 8 --interval 1
+```
+
+`--since` e `--month-to-date` não podem ser usados juntos, e a data não pode estar no futuro.
+
 `--history-days` define quantos dias o histórico cobre, `--samples-per-day` define a densidade e `--interval` controla a espera real entre ciclos. São três requisições por ciclo (coleira, comedouro e ambiente), então 30 dias × 12 amostras resultam em 1.080 requisições. Use um `--interval` maior se o Render limitar a taxa de requisições.
 
 Cada ciclo envia três leituras:

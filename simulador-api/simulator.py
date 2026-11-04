@@ -9,7 +9,7 @@ import os
 import random
 import sys
 import time
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
@@ -39,6 +39,8 @@ def parse_args() -> argparse.Namespace:
                         help="Leituras por dia simulado (padrão: 8, a cada ~3 horas).")
     parser.add_argument("--month-to-date", action="store_true",
                         help="Preenche os horários ausentes do primeiro dia deste mês até agora, sem duplicar leituras próximas.")
+    parser.add_argument("--since", type=date.fromisoformat, default=None, metavar="AAAA-MM-DD",
+                        help="Como --month-to-date, mas a partir da data informada; serve para buracos que começam no mês anterior.")
     parser.add_argument("--scenario", choices=("normal", "alert-once"), default="normal",
                         help="alert-once envia bateria abaixo de 20%% apenas no primeiro ciclo.")
     parser.add_argument("--seed", type=int, default=None,
@@ -151,6 +153,9 @@ def main() -> int:
     if args.cycles < 0 or args.interval < 0 or args.history_days < 0 or args.samples_per_day <= 0:
         print("--cycles, --interval e --history-days não podem ser negativos; --samples-per-day deve ser positivo.", file=sys.stderr)
         return 2
+    if args.month_to_date and args.since:
+        print("Use --month-to-date ou --since, não os dois.", file=sys.stderr)
+        return 2
     if not API_TOKEN:
         print("Defina PETCARE_TOKEN com o JWT de um tutor autorizado ao PET_ID.", file=sys.stderr)
         return 2
@@ -158,8 +163,17 @@ def main() -> int:
     rng = random.Random(args.seed)
     activity_seed = args.seed if args.seed is not None else random.SystemRandom().randrange(2**32)
     now = datetime.now()
-    if args.month_to_date:
-        history_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    fill_gaps = args.month_to_date or args.since is not None
+    if args.since is not None and args.since > now.date():
+        print("--since não pode ser uma data futura.", file=sys.stderr)
+        return 2
+    if fill_gaps:
+        if args.since is not None:
+            history_start = datetime.combine(args.since, datetime.min.time())
+            period = f"de {args.since.isoformat()} até agora"
+        else:
+            history_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+            period = "mês atual até hoje"
         history_end = now
         slot_step = timedelta(hours=24 / args.samples_per_day)
         slots: list[datetime] = []
@@ -186,11 +200,12 @@ def main() -> int:
         history_start = now - timedelta(days=args.history_days)
         total_cycles = args.cycles or max(1, args.history_days * args.samples_per_day)
         pending_slots = []
+        period = f"{args.history_days} dias"
     print(f"API: {API_BASE_URL}")
     print(f"PET_ID: {PET_ID}  (alterável no início do arquivo ou via PETCARE_PET_ID)")
     print(
         f"Cenário: {args.scenario}; intervalo real: {args.interval}s; "
-        f"histórico: {'mês atual até hoje' if args.month_to_date else f'{args.history_days} dias'}; ciclos: {total_cycles}"
+        f"histórico: {period}; ciclos: {total_cycles}"
     )
     print("Pare com Ctrl+C. As leituras passam pelo Java e são persistidas no Oracle.")
 
@@ -199,7 +214,7 @@ def main() -> int:
         while cycle < total_cycles:
             cycle += 1
             print(f"\nCiclo {cycle}")
-            if args.month_to_date:
+            if fill_gaps:
                 reading_time, missing_kinds = pending_slots[cycle - 1]
             else:
                 reading_time = history_start + timedelta(
